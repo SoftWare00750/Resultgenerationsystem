@@ -1,9 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
   images: {
     domains: ['cloud.appwrite.io'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cloud.appwrite.io',
+      },
+    ],
   },
-}
+  webpack: (config) => {
+    config.externals = [...(config.externals || []), { canvas: 'canvas' }];
+    return config;
+  },
+  reactStrictMode: true,
+  swcMinify: true,
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
