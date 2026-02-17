@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 
 // Student Validation Schema
 export const studentSchema = z.object({
@@ -72,7 +72,7 @@ export const validateData = <T>(schema: z.ZodSchema<T>, data: unknown): { succes
     const validData = schema.parse(data);
     return { success: true, data: validData };
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       const errors = error.errors.map(err => err.message);
       return { success: false, errors };
     }
@@ -81,11 +81,15 @@ export const validateData = <T>(schema: z.ZodSchema<T>, data: unknown): { succes
 };
 
 // Helper to format validation errors
-export const formatValidationErrors = (errors: z.ZodError): Record<string, string> => {
+export const formatValidationErrors = (error: unknown): Record<string, string> => {
   const formattedErrors: Record<string, string> = {};
-  errors.errors.forEach((error) => {
-    const path = error.path.join('.');
-    formattedErrors[path] = error.message;
-  });
+  
+  if (error instanceof ZodError) {
+    error.errors.forEach((err) => {
+      const path = err.path.join('.');
+      formattedErrors[path] = err.message;
+    });
+  }
+  
   return formattedErrors;
 };

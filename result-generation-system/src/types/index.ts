@@ -1,29 +1,17 @@
-// User Types
+// User roles
 export type UserRole = 'admin' | 'teacher' | 'parent';
 
+// User type
 export interface User {
   $id: string;
-  email: string;
   name: string;
-  role: UserRole;
+  email: string;
   phone?: string;
-  assignedClasses?: string[];
-  createdAt: string;
-}
-
-// Auth Code Types
-export interface AuthCode {
-  $id: string;
-  code: string;
   role: UserRole;
-  isUsed: boolean;
-  expiresAt: string;
-  createdBy: string;
-  usedBy?: string;
   createdAt: string;
 }
 
-// Student Types
+// Student type
 export interface Student {
   $id: string;
   name: string;
@@ -32,13 +20,13 @@ export interface Student {
   parentId: string;
   dateOfBirth?: string;
   gender?: 'Male' | 'Female';
-  address?: string;
   guardianName?: string;
   guardianPhone?: string;
+  address?: string;
   createdAt: string;
 }
 
-// Subject and Result Types
+// Subject type
 export interface Subject {
   name: string;
   score: number;
@@ -46,10 +34,13 @@ export interface Subject {
   remark?: string;
 }
 
+// Term type
 export type Term = 'First' | 'Second' | 'Third';
-export type ResultType = 'Midterm' | 'Examination';
-export type ClassCategory = 'Nursery' | 'Kindergarten' | 'Primary';
 
+// Result type
+export type ResultType = 'Midterm' | 'Examination';
+
+// Result type
 export interface Result {
   $id: string;
   studentId: string;
@@ -62,28 +53,38 @@ export interface Result {
   subjects: Subject[];
   totalScore?: number;
   averageScore?: number;
-  position?: number;
   overallGrade?: string;
+  position?: number;
   teacherComment?: string;
   principalComment?: string;
   published: boolean;
-  pdfUrl?: string;
   createdBy: string;
   createdAt: string;
-  updatedAt: string;
 }
 
-// Class Types
+// Class type
+export type ClassCategory = 'Nursery' | 'Kindergarten' | 'Primary';
+
 export interface Class {
   $id: string;
   name: string;
   category: ClassCategory;
   assignedTeacherId?: string;
-  students: string[];
   createdAt: string;
 }
 
-// Session Types
+// Auth Code type
+export interface AuthCode {
+  $id: string;
+  code: string;
+  role: UserRole;
+  used: boolean;
+  usedBy?: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+// Session type
 export interface Session {
   $id: string;
   year: string;
@@ -91,77 +92,59 @@ export interface Session {
   createdAt: string;
 }
 
-// Nigerian Education Templates
-export const NURSERY_SUBJECTS = [
-  'Rhymes and Songs',
-  'Letter Work',
-  'Number Work',
-  'Colouring',
-  'Health Habits',
-  'Social Habits'
-];
-
-export const KINDERGARTEN_SUBJECTS = [
-  'English Language',
-  'Mathematics',
-  'Phonics',
-  'Writing',
-  'Health Science',
-  'Creative Arts'
-];
-
-export const PRIMARY_SUBJECTS = [
-  'English Language',
-  'Mathematics',
-  'Basic Science',
-  'Social Studies',
-  'Verbal Reasoning',
-  'Quantitative Reasoning',
-  'Computer Studies',
-  'Christian Religious Studies',
-  'Physical and Health Education',
-  'Creative Arts',
-  'Yoruba Language'
-];
-
-// Grading Scale
-export const GRADING_SCALE = [
-  { min: 75, max: 100, grade: 'A', remark: 'Excellent' },
-  { min: 65, max: 74, grade: 'B', remark: 'Very Good' },
-  { min: 55, max: 64, grade: 'C', remark: 'Good' },
-  { min: 45, max: 54, grade: 'D', remark: 'Fair' },
-  { min: 40, max: 44, grade: 'E', remark: 'Pass' },
-  { min: 0, max: 39, grade: 'F', remark: 'Fail' }
-];
-
-// Class Options
+// Class options
 export const CLASS_OPTIONS = [
   'Nursery 1',
   'Nursery 2',
-  'KG 1',
-  'KG 2',
+  'Kindergarten 1',
+  'Kindergarten 2',
   'Primary 1',
   'Primary 2',
   'Primary 3',
   'Primary 4',
   'Primary 5',
-  'Primary 6'
+  'Primary 6',
+] as const;
+
+// Subject lists by category
+export const NURSERY_SUBJECTS = [
+  'Numeracy',
+  'Literacy',
+  'Creative Arts',
+  'Physical Development',
+  'Social Skills',
 ];
 
-// Helper function to get subjects by class category
-export function getSubjectsByCategory(className: string): string[] {
+export const KINDERGARTEN_SUBJECTS = [
+  'Mathematics',
+  'English Language',
+  'Phonics',
+  'Science',
+  'Creative Arts',
+  'Physical Education',
+];
+
+export const PRIMARY_SUBJECTS = [
+  'Mathematics',
+  'English Language',
+  'Science',
+  'Social Studies',
+  'Religious Knowledge',
+  'Civic Education',
+  'Physical Education',
+  'Creative Arts',
+  'Computer Studies',
+  'French',
+  'Handwriting',
+];
+
+// Get subjects by class category
+export const getSubjectsByCategory = (className: string): string[] => {
   if (className.includes('Nursery')) {
     return NURSERY_SUBJECTS;
-  } else if (className.includes('KG')) {
+  } else if (className.includes('Kindergarten')) {
     return KINDERGARTEN_SUBJECTS;
   } else {
     return PRIMARY_SUBJECTS;
   }
-}
-
-// Helper function to determine class category
-export function getClassCategory(className: string): ClassCategory {
-  if (className.includes('Nursery')) return 'Nursery';
-  if (className.includes('KG')) return 'Kindergarten';
-  return 'Primary';
-}
+};

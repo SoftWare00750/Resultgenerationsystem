@@ -1,4 +1,4 @@
-import { Result } from '@/types';
+import { Result, Subject } from '@/types';
 
 export const statisticsUtils = {
   // Calculate class average
@@ -43,7 +43,7 @@ export const statisticsUtils = {
     const subjectStats: Record<string, { total: number; count: number; average: number }> = {};
 
     results.forEach(result => {
-      result.subjects.forEach(subject => {
+      result.subjects.forEach((subject: Subject) => {
         if (!subjectStats[subject.name]) {
           subjectStats[subject.name] = { total: 0, count: 0, average: 0 };
         }

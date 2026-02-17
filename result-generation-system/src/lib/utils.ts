@@ -1,42 +1,52 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-import { format, parseISO } from 'date-fns';
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { format } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(dateString: string, formatStr: string = 'PPP'): string {
+export function formatDate(date: string | Date, formatStr: string = 'PPP'): string {
   try {
-    const date = parseISO(dateString);
-    return format(date, formatStr);
-  } catch {
-    return dateString;
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return format(dateObj, formatStr);
+  } catch (error) {
+    return 'Invalid date';
   }
 }
 
 export function getOrdinalSuffix(num: number): string {
   const j = num % 10;
   const k = num % 100;
-  if (j === 1 && k !== 11) return num + 'st';
-  if (j === 2 && k !== 12) return num + 'nd';
-  if (j === 3 && k !== 13) return num + 'rd';
+  
+  if (j === 1 && k !== 11) {
+    return num + 'st';
+  }
+  if (j === 2 && k !== 12) {
+    return num + 'nd';
+  }
+  if (j === 3 && k !== 13) {
+    return num + 'rd';
+  }
   return num + 'th';
 }
 
-export function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+export function calculateAge(dateOfBirth: string): number {
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
 }
 
-export function truncate(str: string, length: number = 50): string {
-  if (str.length <= length) return str;
-  return str.substring(0, length) + '...';
-}
-
-export function validateEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-export function validatePhone(phone: string): boolean {
-  return /^[0-9]{10,11}$/.test(phone.replace(/[\s-]/g, ''));
+export function generateCode(length: number = 6): string {
+  return Math.random()
+    .toString(36)
+    .substring(2, 2 + length)
+    .toUpperCase();
 }

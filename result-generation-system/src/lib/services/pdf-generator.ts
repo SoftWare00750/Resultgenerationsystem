@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet, PDFDownloadLink } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { Result } from '@/types';
 import { getOrdinalSuffix } from '@/lib/utils';
 
@@ -152,8 +152,13 @@ const styles = StyleSheet.create({
   },
 });
 
+interface ResultPDFDocumentProps {
+  result: Result;
+  schoolName?: string;
+}
+
 // Result PDF Document Component
-export const ResultPDFDocument = ({ result, schoolName = "Result Generation System" }: { result: Result; schoolName?: string }) => (
+export const ResultPDFDocument = ({ result, schoolName = "Result Generation System" }: ResultPDFDocumentProps) => (
   <Document>
     <Page size="A4" style={styles.page}>
       {/* Header */}
