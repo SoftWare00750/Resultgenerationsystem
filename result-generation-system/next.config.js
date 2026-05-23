@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['cloud.appwrite.io'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -9,12 +8,8 @@ const nextConfig = {
       },
     ],
   },
-  webpack: (config) => {
-    config.externals = [...(config.externals || []), { canvas: 'canvas' }];
-    return config;
-  },
+  turbopack: {},
   reactStrictMode: true,
-  swcMinify: true,
 };
 
 module.exports = nextConfig;
