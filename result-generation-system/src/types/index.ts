@@ -58,8 +58,10 @@ export interface Result {
   teacherComment?: string;
   principalComment?: string;
   published: boolean;
+  pdfUrl?: string;
   createdBy: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 // Class type
@@ -70,6 +72,7 @@ export interface Class {
   name: string;
   category: ClassCategory;
   assignedTeacherId?: string;
+  students: string[];
   createdAt: string;
 }
 
@@ -91,6 +94,16 @@ export interface Session {
   isActive: boolean;
   createdAt: string;
 }
+
+// Grading scale
+export const GRADING_SCALE = [
+  { min: 75, max: 100, grade: 'A', remark: 'Excellent' },
+  { min: 65, max: 74,  grade: 'B', remark: 'Very Good' },
+  { min: 55, max: 64,  grade: 'C', remark: 'Good' },
+  { min: 45, max: 54,  grade: 'D', remark: 'Fair' },
+  { min: 40, max: 44,  grade: 'E', remark: 'Pass' },
+  { min: 0,  max: 39,  grade: 'F', remark: 'Fail' },
+] as const;
 
 // Class options
 export const CLASS_OPTIONS = [
