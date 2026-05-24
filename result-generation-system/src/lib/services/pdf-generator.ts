@@ -3,7 +3,7 @@ import { Result } from '@/types';
 import { getOrdinalSuffix } from '@/lib/utils';
 
 // PDF Styles
-const styles = StyleSheet.create({
+const pdfStyles = StyleSheet.create({
   page: {
     padding: 30,
     backgroundColor: '#ffffff',
@@ -160,98 +160,98 @@ interface ResultPDFDocumentProps {
 // Result PDF Document Component
 export const ResultPDFDocument = ({ result, schoolName = "Result Generation System" }: ResultPDFDocumentProps) => (
   <Document>
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" style={pdfStyles.page}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.schoolName}>{schoolName}</Text>
-        <Text style={styles.schoolInfo}>Academic Excellence • Character Development</Text>
-        <Text style={styles.resultTitle}>
+      <View style={pdfStyles.header}>
+        <Text style={pdfStyles.schoolName}>{schoolName}</Text>
+        <Text style={pdfStyles.schoolInfo}>Academic Excellence • Character Development</Text>
+        <Text style={pdfStyles.resultTitle}>
           {result.session} Academic Session - {result.term} Term {result.resultType}
         </Text>
       </View>
 
       {/* Student Information */}
-      <View style={styles.studentInfo}>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Student Name:</Text>
-          <Text style={styles.infoValue}>{result.studentName}</Text>
+      <View style={pdfStyles.studentInfo}>
+        <View style={pdfStyles.infoRow}>
+          <Text style={pdfStyles.infoLabel}>Student Name:</Text>
+          <Text style={pdfStyles.infoValue}>{result.studentName}</Text>
         </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Admission Number:</Text>
-          <Text style={styles.infoValue}>{result.admissionNumber}</Text>
+        <View style={pdfStyles.infoRow}>
+          <Text style={pdfStyles.infoLabel}>Admission Number:</Text>
+          <Text style={pdfStyles.infoValue}>{result.admissionNumber}</Text>
         </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Class:</Text>
-          <Text style={styles.infoValue}>{result.class}</Text>
+        <View style={pdfStyles.infoRow}>
+          <Text style={pdfStyles.infoLabel}>Class:</Text>
+          <Text style={pdfStyles.infoValue}>{result.class}</Text>
         </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Position:</Text>
-          <Text style={styles.infoValue}>
+        <View style={pdfStyles.infoRow}>
+          <Text style={pdfStyles.infoLabel}>Position:</Text>
+          <Text style={pdfStyles.infoValue}>
             {result.position ? getOrdinalSuffix(result.position) : 'N/A'}
           </Text>
         </View>
       </View>
 
       {/* Subject Scores Table */}
-      <View style={styles.table}>
-        <View style={styles.tableHeader}>
-          <Text style={styles.tableCol1}>Subject</Text>
-          <Text style={styles.tableCol2}>Score</Text>
-          <Text style={styles.tableCol3}>Grade</Text>
-          <Text style={styles.tableCol4}>Remark</Text>
+      <View style={pdfStyles.table}>
+        <View style={pdfStyles.tableHeader}>
+          <Text style={pdfStyles.tableCol1}>Subject</Text>
+          <Text style={pdfStyles.tableCol2}>Score</Text>
+          <Text style={pdfStyles.tableCol3}>Grade</Text>
+          <Text style={pdfStyles.tableCol4}>Remark</Text>
         </View>
         {result.subjects.map((subject, index) => (
-          <View key={index} style={styles.tableRow}>
-            <Text style={styles.tableCol1}>{subject.name}</Text>
-            <Text style={styles.tableCol2}>{subject.score}</Text>
-            <Text style={styles.tableCol3}>{subject.grade}</Text>
-            <Text style={styles.tableCol4}>{subject.remark}</Text>
+          <View key={index} style={pdfStyles.tableRow}>
+            <Text style={pdfStyles.tableCol1}>{subject.name}</Text>
+            <Text style={pdfStyles.tableCol2}>{subject.score}</Text>
+            <Text style={pdfStyles.tableCol3}>{subject.grade}</Text>
+            <Text style={pdfStyles.tableCol4}>{subject.remark}</Text>
           </View>
         ))}
       </View>
 
       {/* Summary */}
-      <View style={styles.summary}>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Total Score:</Text>
-          <Text style={styles.summaryValue}>{result.totalScore}</Text>
+      <View style={pdfStyles.summary}>
+        <View style={pdfStyles.summaryRow}>
+          <Text style={pdfStyles.summaryLabel}>Total Score:</Text>
+          <Text style={pdfStyles.summaryValue}>{result.totalScore}</Text>
         </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Average Score:</Text>
-          <Text style={styles.summaryValue}>{result.averageScore?.toFixed(2)}%</Text>
+        <View style={pdfStyles.summaryRow}>
+          <Text style={pdfStyles.summaryLabel}>Average Score:</Text>
+          <Text style={pdfStyles.summaryValue}>{result.averageScore?.toFixed(2)}%</Text>
         </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Overall Grade:</Text>
-          <Text style={styles.summaryValue}>{result.overallGrade}</Text>
+        <View style={pdfStyles.summaryRow}>
+          <Text style={pdfStyles.summaryLabel}>Overall Grade:</Text>
+          <Text style={pdfStyles.summaryValue}>{result.overallGrade}</Text>
         </View>
       </View>
 
       {/* Comments */}
-      <View style={styles.commentsSection}>
+      <View style={pdfStyles.commentsSection}>
         {result.teacherComment && (
-          <View style={styles.commentBox}>
-            <Text style={styles.commentLabel}>Teacher's Comment:</Text>
-            <Text style={styles.commentText}>{result.teacherComment}</Text>
+          <View style={pdfStyles.commentBox}>
+            <Text style={pdfStyles.commentLabel}>Teacher's Comment:</Text>
+            <Text style={pdfStyles.commentText}>{result.teacherComment}</Text>
           </View>
         )}
         {result.principalComment && (
-          <View style={styles.commentBox}>
-            <Text style={styles.commentLabel}>Principal's Comment:</Text>
-            <Text style={styles.commentText}>{result.principalComment}</Text>
+          <View style={pdfStyles.commentBox}>
+            <Text style={pdfStyles.commentLabel}>Principal's Comment:</Text>
+            <Text style={pdfStyles.commentText}>{result.principalComment}</Text>
           </View>
         )}
       </View>
 
       {/* Grading Scale */}
-      <View style={styles.gradeScale}>
-        <Text style={styles.gradeScaleTitle}>Grading Scale:</Text>
-        <Text style={styles.gradeScaleText}>
+      <View style={pdfStyles.gradeScale}>
+        <Text style={pdfStyles.gradeScaleTitle}>Grading Scale:</Text>
+        <Text style={pdfStyles.gradeScaleText}>
           A (75-100): Excellent • B (65-74): Very Good • C (55-64): Good • D (45-54): Fair • E (40-44): Pass • F (0-39): Fail
         </Text>
       </View>
 
       {/* Footer */}
-      <View style={styles.footer}>
+      <View style={pdfStyles.footer}>
         <Text>Generated on {new Date().toLocaleDateString()} • Result Generation System</Text>
       </View>
     </Page>
