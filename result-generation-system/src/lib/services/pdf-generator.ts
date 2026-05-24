@@ -1,8 +1,9 @@
+export {};
+
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { Result } from '@/types';
 import { getOrdinalSuffix } from '@/lib/utils';
 
-// PDF Styles
 const pdfStyles = StyleSheet.create({
   page: {
     padding: 30,
@@ -157,11 +158,9 @@ interface ResultPDFDocumentProps {
   schoolName?: string;
 }
 
-// Result PDF Document Component
 export const ResultPDFDocument = ({ result, schoolName = "Result Generation System" }: ResultPDFDocumentProps) => (
   <Document>
     <Page size="A4" style={pdfStyles.page}>
-      {/* Header */}
       <View style={pdfStyles.header}>
         <Text style={pdfStyles.schoolName}>{schoolName}</Text>
         <Text style={pdfStyles.schoolInfo}>Academic Excellence • Character Development</Text>
@@ -170,7 +169,6 @@ export const ResultPDFDocument = ({ result, schoolName = "Result Generation Syst
         </Text>
       </View>
 
-      {/* Student Information */}
       <View style={pdfStyles.studentInfo}>
         <View style={pdfStyles.infoRow}>
           <Text style={pdfStyles.infoLabel}>Student Name:</Text>
@@ -192,7 +190,6 @@ export const ResultPDFDocument = ({ result, schoolName = "Result Generation Syst
         </View>
       </View>
 
-      {/* Subject Scores Table */}
       <View style={pdfStyles.table}>
         <View style={pdfStyles.tableHeader}>
           <Text style={pdfStyles.tableCol1}>Subject</Text>
@@ -210,7 +207,6 @@ export const ResultPDFDocument = ({ result, schoolName = "Result Generation Syst
         ))}
       </View>
 
-      {/* Summary */}
       <View style={pdfStyles.summary}>
         <View style={pdfStyles.summaryRow}>
           <Text style={pdfStyles.summaryLabel}>Total Score:</Text>
@@ -226,7 +222,6 @@ export const ResultPDFDocument = ({ result, schoolName = "Result Generation Syst
         </View>
       </View>
 
-      {/* Comments */}
       <View style={pdfStyles.commentsSection}>
         {result.teacherComment && (
           <View style={pdfStyles.commentBox}>
@@ -242,7 +237,6 @@ export const ResultPDFDocument = ({ result, schoolName = "Result Generation Syst
         )}
       </View>
 
-      {/* Grading Scale */}
       <View style={pdfStyles.gradeScale}>
         <Text style={pdfStyles.gradeScaleTitle}>Grading Scale:</Text>
         <Text style={pdfStyles.gradeScaleText}>
@@ -250,7 +244,6 @@ export const ResultPDFDocument = ({ result, schoolName = "Result Generation Syst
         </Text>
       </View>
 
-      {/* Footer */}
       <View style={pdfStyles.footer}>
         <Text>Generated on {new Date().toLocaleDateString()} • Result Generation System</Text>
       </View>
@@ -258,7 +251,6 @@ export const ResultPDFDocument = ({ result, schoolName = "Result Generation Syst
   </Document>
 );
 
-// Helper function to generate PDF blob
 export const generateResultPDF = async (result: Result, schoolName?: string): Promise<Blob> => {
   const { pdf } = await import('@react-pdf/renderer');
   return await pdf(<ResultPDFDocument result={result} schoolName={schoolName} />).toBlob();
