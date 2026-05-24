@@ -1,5 +1,3 @@
-export {};
-
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { Result } from '@/types';
 import { getOrdinalSuffix } from '@/lib/utils';
