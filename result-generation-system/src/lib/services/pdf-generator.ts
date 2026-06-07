@@ -129,4 +129,4 @@ export const ResultPDFDocument = ({ result, schoolName = "Result Generation Syst
 export const generateResultPDF = async (result: Result, schoolName?: string): Promise<Blob> => {
   const { pdf } = await import('@react-pdf/renderer');
   return await pdf(<ResultPDFDocument result={result} schoolName={schoolName} />).toBlob();
-};q
+};
