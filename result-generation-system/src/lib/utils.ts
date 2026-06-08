@@ -1,37 +1,31 @@
-import { Session } from '@/types';
-import { ID } from '../id';
-import { getStore, setStore, KEYS } from '../storage';
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
-export const sessionsService = {
-  async createSession(year: string, isActive: boolean = false): Promise<Session> {
-    const sessions = getStore<Session>(KEYS.sessions);
-    if (sessions.find(s => s.year === year)) throw new Error(`Session ${year} already exists`);
-    const session: Session = {
-      $id: ID.unique(),
-      year,
-      isActive,
-      createdAt: new Date().toISOString(),
-    };
-    sessions.unshift(session);
-    setStore(KEYS.sessions, sessions);
-    return session;
-  },
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
-  async getAllSessions(): Promise<Session[]> {
-    return getStore<Session>(KEYS.sessions);
-  },
+export function formatDate(date: Date | string): string {
+  const d = new Date(date);
 
-  async getActiveSession(): Promise<Session | null> {
-    return getStore<Session>(KEYS.sessions).find(s => s.isActive) || null;
-  },
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
 
-  async setActiveSession(sessionId: string): Promise<Session> {
-    const sessions = getStore<Session>(KEYS.sessions).map(s => ({ ...s, isActive: s.$id === sessionId }));
-    setStore(KEYS.sessions, sessions);
-    return sessions.find(s => s.$id === sessionId)!;
-  },
+export function getOrdinalSuffix(day: number): string {
+  if (day > 3 && day < 21) return "th";
 
-  async deleteSession(sessionId: string): Promise<void> {
-    setStore(KEYS.sessions, getStore<Session>(KEYS.sessions).filter(s => s.$id !== sessionId));
-  },
-};
+  switch (day % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+}

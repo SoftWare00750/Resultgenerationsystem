@@ -1,6 +1,6 @@
 // Local Storage Service - replaces Appwrite backend
 import { User, Student, Result, Class, AuthCode, Session, Subject, GRADING_SCALE } from '@/lib/types';
-import { ID } from './id';
+import { ID } from '../id';
 
 const KEYS = {
   users: 'rgs_users',
