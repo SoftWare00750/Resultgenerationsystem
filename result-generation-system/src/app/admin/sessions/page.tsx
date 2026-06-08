@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { sessionsService } from '@/lib/services/sessions';
 import { toast } from 'sonner';
 import { Plus, CheckCircle, Trash2, RefreshCw } from 'lucide-react';
-import { Session } from '@/types';
+import { Session } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Calendar } from 'lucide-react';

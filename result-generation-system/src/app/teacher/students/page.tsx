@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { studentsService } from '@/lib/services/students';
 import { classesService } from '@/lib/services/classes';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
-import { Student, Class } from '@/types';
+import { Student, Class } from '@/lib/types';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { GraduationCap } from 'lucide-react';
 

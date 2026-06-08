@@ -1,99 +1,54 @@
-import { databases, getEnv } from '../appwrite';
-import { ID, Query } from 'appwrite';
 import { Student } from '@/types';
-
-const { databaseId, collections } = getEnv();
+import { ID } from '../id';
+import { getStore, setStore, KEYS } from '../storage';
 
 export const studentsService = {
   async createStudent(data: Omit<Student, '$id' | 'createdAt'>): Promise<Student> {
-    try {
-      const student = await databases.createDocument(
-        databaseId,
-        collections.students,
-        ID.unique(),
-        { ...data, createdAt: new Date().toISOString() }
-      );
-      return student as unknown as Student;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to create student');
-    }
+    const students = getStore<Student>(KEYS.students);
+    const newStudent: Student = {
+      ...data,
+      $id: ID.unique(),
+      createdAt: new Date().toISOString(),
+    };
+    students.push(newStudent);
+    setStore(KEYS.students, students);
+    return newStudent;
   },
 
   async getStudent(studentId: string): Promise<Student> {
-    try {
-      const student = await databases.getDocument(databaseId, collections.students, studentId);
-      return student as unknown as Student;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch student');
-    }
+    const students = getStore<Student>(KEYS.students);
+    const s = students.find(s => s.$id === studentId);
+    if (!s) throw new Error('Student not found');
+    return s;
   },
 
   async getStudentsByParent(parentId: string): Promise<Student[]> {
-    try {
-      const students = await databases.listDocuments(
-        databaseId,
-        collections.students,
-        [Query.equal('parentId', parentId)]
-      );
-      return students.documents as unknown as Student[];
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch students');
-    }
+    return getStore<Student>(KEYS.students).filter(s => s.parentId === parentId);
   },
 
   async getStudentsByClass(className: string): Promise<Student[]> {
-    try {
-      const students = await databases.listDocuments(
-        databaseId,
-        collections.students,
-        [Query.equal('class', className), Query.limit(1000)]
-      );
-      return students.documents as unknown as Student[];
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch students');
-    }
+    return getStore<Student>(KEYS.students).filter(s => s.class === className);
   },
 
   async getAllStudents(): Promise<Student[]> {
-    try {
-      const students = await databases.listDocuments(
-        databaseId,
-        collections.students,
-        [Query.limit(1000)]
-      );
-      return students.documents as unknown as Student[];
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch students');
-    }
+    return getStore<Student>(KEYS.students);
   },
 
   async updateStudent(studentId: string, data: Partial<Student>): Promise<Student> {
-    try {
-      const student = await databases.updateDocument(databaseId, collections.students, studentId, data);
-      return student as unknown as Student;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to update student');
-    }
+    const students = getStore<Student>(KEYS.students);
+    const idx = students.findIndex(s => s.$id === studentId);
+    if (idx === -1) throw new Error('Student not found');
+    students[idx] = { ...students[idx], ...data };
+    setStore(KEYS.students, students);
+    return students[idx];
   },
 
   async deleteStudent(studentId: string): Promise<void> {
-    try {
-      await databases.deleteDocument(databaseId, collections.students, studentId);
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to delete student');
-    }
+    const students = getStore<Student>(KEYS.students);
+    setStore(KEYS.students, students.filter(s => s.$id !== studentId));
   },
 
   async checkAdmissionNumber(admissionNumber: string): Promise<boolean> {
-    try {
-      const students = await databases.listDocuments(
-        databaseId,
-        collections.students,
-        [Query.equal('admissionNumber', admissionNumber)]
-      );
-      return students.documents.length > 0;
-    } catch (error: any) {
-      return false;
-    }
-  }
+    return getStore<Student>(KEYS.students).some(s => s.admissionNumber === admissionNumber);
+  },
 };

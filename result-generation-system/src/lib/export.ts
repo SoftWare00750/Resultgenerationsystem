@@ -1,4 +1,4 @@
-import { Result, Student } from '@/types';
+import { Result, Student } from '@/lib/types';
 
 // Export results to CSV
 export const exportResultsToCSV = (results: Result[]): string => {

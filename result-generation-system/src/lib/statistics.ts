@@ -1,4 +1,4 @@
-import { Result, Subject } from '@/types';
+import { Result, Subject } from '@/lib/types';
 
 export const statisticsUtils = {
   // Calculate class average

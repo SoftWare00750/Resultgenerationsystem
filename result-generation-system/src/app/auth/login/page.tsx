@@ -1,6 +1,5 @@
 "use client";
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/lib/services/auth';
 import { useAuthStore } from '@/store/auth-store';
@@ -9,7 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { Eye, EyeOff, GraduationCap, BookOpen, Users, FileText } from 'lucide-react';
+import Image from 'next/image';
+import { Eye, EyeOff, GraduationCap, BookOpen, Users, FileText, Shield } from 'lucide-react';
+import { seedDefaults, ensureAdminPassword } from '@/lib/storage';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,204 +20,173 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    seedDefaults();
+    ensureAdminPassword();
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const user = await authService.login(email, password);
       setUser(user);
-      toast.success('Login successful!');
+      toast.success(`Welcome back, ${user.name}!`);
       router.push(`/${user.role}/dashboard`);
     } catch (error: any) {
-      toast.error(error.message || 'Login failed. Please check your credentials.');
+      toast.error(error.message || 'Login failed');
     } finally {
       setLoading(false);
     }
   };
 
+  const fillDemo = (role: 'admin' | 'teacher' | 'parent') => {
+    if (role === 'admin') { setEmail('admin@school.edu.ng'); setPassword('Admin@123'); }
+  };
+
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Left Panel — Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-foreground text-background flex-col justify-between p-12 relative overflow-hidden">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 left-0 w-96 h-96 rounded-full bg-background translate-x-[-30%] translate-y-[-30%]" />
-          <div className="absolute bottom-0 right-0 w-80 h-80 rounded-full bg-background translate-x-[30%] translate-y-[30%]" />
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 rounded-full bg-background translate-x-[-50%] translate-y-[-50%]" />
+      {/* Left branding panel */}
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col overflow-hidden">
+        {/* Background image */}
+        <div className="absolute inset-0">
+          <Image
+            src="/images/Result_Generation_System.jpg"
+            alt="School"
+            fill
+            className="object-cover"
+            priority
+            onError={() => {}}
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-slate-900/75 to-slate-900/60" />
         </div>
 
-        {/* Logo */}
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-background flex items-center justify-center">
-              <span className="text-foreground font-bold text-sm">RGS</span>
+        <div className="relative z-10 flex flex-col justify-between h-full p-12">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm">
+              <span className="text-white font-bold text-sm">RGS</span>
             </div>
-            <span className="text-background font-semibold text-lg tracking-tight">
-              Result Generation System
-            </span>
+            <span className="text-white font-semibold text-lg tracking-tight">Result Generation System</span>
           </div>
-        </div>
 
-        {/* Hero text */}
-        <div className="relative z-10 space-y-6">
-          <h1 className="text-5xl font-bold leading-tight text-background">
-            Empowering
-            <br />
-            Nigerian Schools
-            <br />
-            <span className="opacity-60">with Modern</span>
-            <br />
-            Result Management
-          </h1>
-          <p className="text-background/70 text-lg leading-relaxed max-w-sm">
-            Streamline your school's result generation, from midterms to examinations, for Nursery through Primary.
-          </p>
-        </div>
-
-        {/* Feature chips */}
-        <div className="relative z-10 grid grid-cols-2 gap-3">
-          {[
-            { icon: Users, label: 'Multi-Role Access' },
-            { icon: FileText, label: 'PDF Generation' },
-            { icon: BookOpen, label: 'Auto Grading' },
-            { icon: GraduationCap, label: 'All Class Levels' },
-          ].map(({ icon: Icon, label }) => (
-            <div
-              key={label}
-              className="flex items-center gap-2 bg-background/10 rounded-lg px-3 py-2 border border-background/20"
-            >
-              <Icon className="h-4 w-4 text-background/70" />
-              <span className="text-background/80 text-sm font-medium">{label}</span>
+          {/* Hero */}
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="inline-block text-xs font-semibold tracking-widest uppercase text-white/50 border border-white/20 rounded-full px-3 py-1">
+                Nigerian Schools Platform
+              </div>
+              <h1 className="text-5xl font-bold text-white leading-[1.1]">
+                Modern Result<br />Management
+              </h1>
+              <p className="text-white/70 text-lg max-w-sm leading-relaxed">
+                Streamline academic result generation from Nursery through Primary school with ease.
+              </p>
             </div>
-          ))}
+
+            {/* Feature grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { icon: Users, label: 'Multi-Role Access' },
+                { icon: FileText, label: 'PDF Generation' },
+                { icon: BookOpen, label: 'Auto Grading' },
+                { icon: GraduationCap, label: 'All Class Levels' },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="flex items-center gap-2.5 bg-white/8 backdrop-blur-sm border border-white/15 rounded-xl px-3.5 py-2.5">
+                  <Icon className="h-4 w-4 text-white/60 shrink-0" />
+                  <span className="text-white/80 text-sm font-medium">{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom credit */}
+          <p className="text-white/30 text-xs">© 2024 Result Generation System</p>
         </div>
       </div>
 
-      {/* Right Panel — Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      {/* Right form panel */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-lg bg-foreground flex items-center justify-center">
-              <span className="text-background font-bold text-sm">RGS</span>
+          <div className="lg:hidden flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-sm">RGS</span>
             </div>
-            <span className="font-semibold text-lg tracking-tight">Result Generation System</span>
+            <span className="font-semibold text-lg">Result Generation System</span>
           </div>
 
-          {/* Header */}
           <div className="space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight">Welcome back</h2>
-            <p className="text-muted-foreground">
-              Sign in to your account to continue
-            </p>
+            <h2 className="text-3xl font-bold tracking-tight">Sign in</h2>
+            <p className="text-muted-foreground">Access your portal to manage results</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                Email address
-              </Label>
+              <Label htmlFor="email">Email address</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="you@school.edu.ng"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="h-11"
+                id="email" type="email" placeholder="you@school.edu.ng"
+                value={email} onChange={e => setEmail(e.target.value)}
+                required autoComplete="email" className="h-11"
               />
             </div>
-
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-sm font-medium">
-                  Password
-                </Label>
-              </div>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
+                  id="password" type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  className="h-11 pr-11"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  required autoComplete="current-password" className="h-11 pr-11"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full h-11 font-medium"
-              disabled={loading}
-            >
+            <Button type="submit" className="w-full h-11" disabled={loading}>
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
                   Signing in…
                 </span>
-              ) : (
-                'Sign in'
-              )}
+              ) : 'Sign in'}
             </Button>
           </form>
 
-          {/* Divider */}
           <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                New to RGS?
-              </span>
+              <span className="bg-background px-2 text-muted-foreground">New user?</span>
             </div>
           </div>
 
-          {/* Register link */}
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">
-              Have an authorization code?{' '}
-              <Link
-                href="/auth/register"
-                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
-              >
-                Create an account
-              </Link>
-            </p>
-          </div>
+          <p className="text-center text-sm text-muted-foreground">
+            Have an authorization code?{' '}
+            <Link href="/auth/register" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
+              Create an account
+            </Link>
+          </p>
 
-          {/* Role hint */}
-          <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground space-y-1">
-            <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-2">
-              Account Roles
-            </p>
-            <p>
-              <span className="font-medium text-foreground">Admin</span> — Full system oversight
-            </p>
-            <p>
-              <span className="font-medium text-foreground">Teacher</span> — Create &amp; publish results
-            </p>
-            <p>
-              <span className="font-medium text-foreground">Parent</span> — View ward results
-            </p>
+          {/* Demo credentials */}
+          <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Shield className="h-3.5 w-3.5" />
+              Demo Credentials
+            </div>
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => fillDemo('admin')}
+                className="w-full text-left text-sm px-3 py-2 rounded-lg bg-background border hover:border-primary/50 transition-colors"
+              >
+                <span className="font-medium">Admin</span>
+                <span className="text-muted-foreground ml-2 text-xs">admin@school.edu.ng / Admin@123</span>
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">Click to auto-fill. Register teachers & parents with auth codes.</p>
           </div>
         </div>
       </div>

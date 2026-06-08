@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { resultsService } from '@/lib/services/results';
 import { toast } from 'sonner';
 import { RefreshCw, Eye, Download } from 'lucide-react';
-import { Result } from '@/types';
+import { Result } from '@/lib/types';
 import { formatDate, getOrdinalSuffix } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { FileText } from 'lucide-react';

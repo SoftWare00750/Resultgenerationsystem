@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { authService } from '@/lib/services/auth';
 import { LoadingSpinner } from './LoadingSpinner';
-import { UserRole } from '@/types';
+import { UserRole } from '@/lib/types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

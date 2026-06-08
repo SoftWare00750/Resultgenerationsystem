@@ -6,10 +6,7 @@ interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
   description: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
+  action?: { label: string; onClick: () => void; };
 }
 
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
@@ -20,11 +17,7 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
       </div>
       <h3 className="text-lg font-semibold mb-1">{title}</h3>
       <p className="text-sm text-muted-foreground mb-4 max-w-sm">{description}</p>
-      {action && (
-        <Button onClick={action.onClick} variant="outline">
-          {action.label}
-        </Button>
-      )}
+      {action && <Button onClick={action.onClick} variant="outline">{action.label}</Button>}
     </div>
   );
-          }
+}

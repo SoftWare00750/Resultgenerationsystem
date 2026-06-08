@@ -9,11 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { studentsService } from '@/lib/services/students';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from 'sonner';
 import { Plus, RefreshCw, UserCircle } from 'lucide-react';
-import { Student } from '@/types';
-import { CLASS_OPTIONS } from '@/types';
+import { Student } from '@/lib/types';
+import { CLASS_OPTIONS } from '@/lib/types';
 import { EmptyState } from '@/components/shared/EmptyState';
 
 export default function ParentWardsPage() {

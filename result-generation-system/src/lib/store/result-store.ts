@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Result } from '@/types';
+import { Result } from '@/lib/types';
 
 interface ResultState {
   currentResult: Result | null;

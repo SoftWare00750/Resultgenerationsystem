@@ -1,6 +1,6 @@
 // PDF Result Generator
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { Result } from '@/types';
+import { Result } from '@/lib/types';
 import { getOrdinalSuffix } from '@/lib/utils';
 
 const pdfStyles = StyleSheet.create({

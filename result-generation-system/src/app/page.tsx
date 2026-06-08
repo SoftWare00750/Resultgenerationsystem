@@ -1,31 +1,32 @@
 "use client";
-
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { authService } from '@/lib/services/auth';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
+import { seedDefaults, ensureAdminPassword } from '@/lib/storage';
 
 export default function Home() {
   const router = useRouter();
-  const { user, setUser, setLoading } = useAuthStore();
+  const { setUser } = useAuthStore();
 
   useEffect(() => {
-    const checkAuth = async () => {
+    seedDefaults();
+    ensureAdminPassword();
+    const check = async () => {
       try {
-        const currentUser = await authService.getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-          router.push(`/${currentUser.role}/dashboard`);
+        const user = await authService.getCurrentUser();
+        if (user) {
+          setUser(user);
+          router.replace(`/${user.role}/dashboard`);
         } else {
-          router.push('/auth/login');
+          router.replace('/auth/login');
         }
-      } catch (error) {
-        router.push('/auth/login');
+      } catch {
+        router.replace('/auth/login');
       }
     };
-
-    checkAuth();
+    check();
   }, [router, setUser]);
 
   return (

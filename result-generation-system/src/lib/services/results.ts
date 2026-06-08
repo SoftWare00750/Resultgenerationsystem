@@ -1,210 +1,106 @@
-import { databases, storage, getEnv } from '../appwrite';
-import { ID, Query } from 'appwrite';
 import { Result, Subject, GRADING_SCALE } from '@/types';
-
-const { databaseId, collections, storageBucketId } = getEnv();
+import { ID } from '../id';
+import { getStore, setStore, KEYS } from '../storage';
 
 export const resultsService = {
-  // Calculate grade based on score
   calculateGrade(score: number): { grade: string; remark: string } {
-    const gradeInfo = GRADING_SCALE.find(g => score >= g.min && score <= g.max);
-    return gradeInfo || { grade: 'F', remark: 'Fail' };
+    const g = GRADING_SCALE.find(g => score >= g.min && score <= g.max);
+    return g ? { grade: g.grade, remark: g.remark } : { grade: 'F', remark: 'Fail' };
   },
 
-  // Calculate position in class
-  async calculatePosition(className: string, term: string, session: string, averageScore: number): Promise<number> {
-    try {
-      const results = await databases.listDocuments(
-        databaseId,
-        collections.results,
-        [
-          Query.equal('class', className),
-          Query.equal('term', term),
-          Query.equal('session', session),
-          Query.limit(1000)
-        ]
-      );
-
-      const sortedResults = results.documents
-        .map(r => r.averageScore || 0)
-        .sort((a, b) => b - a);
-
-      const position = sortedResults.findIndex(score => score <= averageScore) + 1;
-      return position || 1;
-    } catch (error: any) {
-      return 1;
-    }
+  calculatePosition(results: Result[], studentId: string): number {
+    const sorted = [...results].sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0));
+    const idx = sorted.findIndex(r => r.studentId === studentId);
+    return idx === -1 ? 1 : idx + 1;
   },
 
-  // Create result
   async createResult(data: Omit<Result, '$id' | 'createdAt' | 'updatedAt'>): Promise<Result> {
-    try {
-      const subjects = data.subjects || [];
-      const totalScore = subjects.reduce((sum, s) => sum + s.score, 0);
-      const averageScore = subjects.length > 0 ? totalScore / subjects.length : 0;
-      const { grade, remark } = this.calculateGrade(averageScore);
-      const position = await this.calculatePosition(data.class, data.term, data.session, averageScore);
+    const subjects = data.subjects || [];
+    const totalScore = subjects.reduce((sum, s) => sum + (s.score || 0), 0);
+    const averageScore = subjects.length > 0 ? totalScore / subjects.length : 0;
+    const { grade } = this.calculateGrade(averageScore);
 
-      const result = await databases.createDocument(
-        databaseId,
-        collections.results,
-        ID.unique(),
-        {
-          ...data,
-          subjects: JSON.stringify(subjects),
-          totalScore,
-          averageScore: parseFloat(averageScore.toFixed(2)),
-          position,
-          overallGrade: grade,
-          published: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      );
+    const allResults = getStore<Result>(KEYS.results);
+    // Calculate position among class results for same term/session
+    const classResults = allResults.filter(
+      r => r.class === data.class && r.term === data.term && r.session === data.session && r.resultType === data.resultType
+    );
 
-      return {
-        ...result,
-        subjects: JSON.parse(result.subjects)
-      } as unknown as Result;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to create result');
-    }
+    const newResult: Result = {
+      ...data,
+      $id: ID.unique(),
+      totalScore,
+      averageScore: parseFloat(averageScore.toFixed(2)),
+      overallGrade: grade,
+      position: 1,
+      published: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    allResults.unshift(newResult);
+    setStore(KEYS.results, allResults);
+
+    // Recalculate positions for all in same class/term/session
+    this._recalcPositions(data.class, data.term, data.session, data.resultType);
+
+    return getStore<Result>(KEYS.results).find(r => r.$id === newResult.$id)!;
   },
 
-  // Update result
+  _recalcPositions(className: string, term: string, session: string, resultType: string) {
+    const all = getStore<Result>(KEYS.results);
+    const group = all.filter(r => r.class === className && r.term === term && r.session === session && r.resultType === resultType);
+    const sorted = [...group].sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0));
+    sorted.forEach((r, i) => {
+      const idx = all.findIndex(x => x.$id === r.$id);
+      if (idx !== -1) all[idx].position = i + 1;
+    });
+    setStore(KEYS.results, all);
+  },
+
   async updateResult(resultId: string, data: Partial<Result>): Promise<Result> {
-    try {
-      let updateData: any = { ...data, updatedAt: new Date().toISOString() };
+    const all = getStore<Result>(KEYS.results);
+    const idx = all.findIndex(r => r.$id === resultId);
+    if (idx === -1) throw new Error('Result not found');
 
-      if (data.subjects) {
-        const subjects = data.subjects;
-        const totalScore = subjects.reduce((sum, s) => sum + s.score, 0);
-        const averageScore = subjects.length > 0 ? totalScore / subjects.length : 0;
-        const { grade } = this.calculateGrade(averageScore);
-
-        updateData = {
-          ...updateData,
-          subjects: JSON.stringify(subjects),
-          totalScore,
-          averageScore: parseFloat(averageScore.toFixed(2)),
-          overallGrade: grade,
-        };
-      }
-
-      const result = await databases.updateDocument(
-        databaseId,
-        collections.results,
-        resultId,
-        updateData
-      );
-
-      return {
-        ...result,
-        subjects: JSON.parse(result.subjects)
-      } as unknown as Result;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to update result');
+    let updated = { ...all[idx], ...data, updatedAt: new Date().toISOString() };
+    if (data.subjects) {
+      const subjects = data.subjects;
+      const totalScore = subjects.reduce((sum, s) => sum + (s.score || 0), 0);
+      const averageScore = subjects.length > 0 ? totalScore / subjects.length : 0;
+      const { grade } = this.calculateGrade(averageScore);
+      updated = { ...updated, totalScore, averageScore: parseFloat(averageScore.toFixed(2)), overallGrade: grade };
     }
+    all[idx] = updated;
+    setStore(KEYS.results, all);
+    return updated;
   },
 
-  // Publish result
   async publishResult(resultId: string): Promise<Result> {
-    try {
-      const result = await databases.updateDocument(
-        databaseId,
-        collections.results,
-        resultId,
-        { published: true, updatedAt: new Date().toISOString() }
-      );
-
-      return {
-        ...result,
-        subjects: JSON.parse(result.subjects)
-      } as unknown as Result;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to publish result');
-    }
+    return this.updateResult(resultId, { published: true });
   },
 
-  // Get results by student
+  async unpublishResult(resultId: string): Promise<Result> {
+    return this.updateResult(resultId, { published: false });
+  },
+
   async getResultsByStudent(studentId: string): Promise<Result[]> {
-    try {
-      const results = await databases.listDocuments(
-        databaseId,
-        collections.results,
-        [Query.equal('studentId', studentId), Query.orderDesc('$createdAt')]
-      );
-
-      return results.documents.map(r => ({
-        ...r,
-        subjects: JSON.parse(r.subjects)
-      })) as unknown as Result[];
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch results');
-    }
+    return getStore<Result>(KEYS.results).filter(r => r.studentId === studentId);
   },
 
-  // Get results by class
   async getResultsByClass(className: string, term?: string, session?: string): Promise<Result[]> {
-    try {
-      let queries = [Query.equal('class', className), Query.limit(1000)];
-      if (term) queries.push(Query.equal('term', term));
-      if (session) queries.push(Query.equal('session', session));
-
-      const results = await databases.listDocuments(databaseId, collections.results, queries);
-
-      return results.documents.map(r => ({
-        ...r,
-        subjects: JSON.parse(r.subjects)
-      })) as unknown as Result[];
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch results');
-    }
+    let results = getStore<Result>(KEYS.results).filter(r => r.class === className);
+    if (term) results = results.filter(r => r.term === term);
+    if (session) results = results.filter(r => r.session === session);
+    return results;
   },
 
-  // Get all results
   async getAllResults(): Promise<Result[]> {
-    try {
-      const results = await databases.listDocuments(
-        databaseId,
-        collections.results,
-        [Query.limit(1000), Query.orderDesc('$createdAt')]
-      );
-
-      return results.documents.map(r => ({
-        ...r,
-        subjects: JSON.parse(r.subjects)
-      })) as unknown as Result[];
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch results');
-    }
+    return getStore<Result>(KEYS.results);
   },
 
-  // Delete result
   async deleteResult(resultId: string): Promise<void> {
-    try {
-      await databases.deleteDocument(databaseId, collections.results, resultId);
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to delete result');
-    }
+    const all = getStore<Result>(KEYS.results);
+    setStore(KEYS.results, all.filter(r => r.$id !== resultId));
   },
-
-  // Upload PDF
-  async uploadPDF(file: File, resultId: string): Promise<string> {
-    try {
-      const uploadedFile = await storage.createFile(storageBucketId, ID.unique(), file);
-      const fileUrl = storage.getFileView(storageBucketId, uploadedFile.$id);
-
-      await this.updateResult(resultId, { pdfUrl: fileUrl.toString() });
-
-      return fileUrl.toString();
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to upload PDF');
-    }
-  },
-
-  // Get PDF URL
-  getPDFUrl(fileId: string): string {
-    return storage.getFileView(storageBucketId, fileId).toString();
-  }
 };

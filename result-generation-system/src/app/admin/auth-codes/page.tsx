@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authService } from '@/lib/services/auth';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from 'sonner';
 import { Plus, Copy, RefreshCw } from 'lucide-react';
-import { UserRole } from '@/types';
+import { UserRole } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
 
 export default function AuthCodesPage() {

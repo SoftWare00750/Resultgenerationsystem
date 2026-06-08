@@ -1,17 +1,15 @@
-// User roles
 export type UserRole = 'admin' | 'teacher' | 'parent';
 
-// User type
 export interface User {
   $id: string;
   name: string;
   email: string;
   phone?: string;
   role: UserRole;
+  assignedClasses?: string;
   createdAt: string;
 }
 
-// Student type
 export interface Student {
   $id: string;
   name: string;
@@ -26,7 +24,6 @@ export interface Student {
   createdAt: string;
 }
 
-// Subject type
 export interface Subject {
   name: string;
   score: number;
@@ -34,13 +31,9 @@ export interface Subject {
   remark?: string;
 }
 
-// Term type
 export type Term = 'First' | 'Second' | 'Third';
-
-// Result type
 export type ResultType = 'Midterm' | 'Examination';
 
-// Result type
 export interface Result {
   $id: string;
   studentId: string;
@@ -64,7 +57,6 @@ export interface Result {
   updatedAt?: string;
 }
 
-// Class type
 export type ClassCategory = 'Nursery' | 'Kindergarten' | 'Primary';
 
 export interface Class {
@@ -76,18 +68,17 @@ export interface Class {
   createdAt: string;
 }
 
-// Auth Code type
 export interface AuthCode {
   $id: string;
   code: string;
   role: UserRole;
-  used: boolean;
+  isUsed: boolean;
   usedBy?: string;
   expiresAt: string;
+  createdBy: string;
   createdAt: string;
 }
 
-// Session type
 export interface Session {
   $id: string;
   year: string;
@@ -95,7 +86,6 @@ export interface Session {
   createdAt: string;
 }
 
-// Grading scale
 export const GRADING_SCALE = [
   { min: 75, max: 100, grade: 'A', remark: 'Excellent' },
   { min: 65, max: 74,  grade: 'B', remark: 'Very Good' },
@@ -105,7 +95,6 @@ export const GRADING_SCALE = [
   { min: 0,  max: 39,  grade: 'F', remark: 'Fail' },
 ] as const;
 
-// Class options
 export const CLASS_OPTIONS = [
   'Nursery 1',
   'Nursery 2',
@@ -119,7 +108,6 @@ export const CLASS_OPTIONS = [
   'Primary 6',
 ] as const;
 
-// Subject lists by category
 export const NURSERY_SUBJECTS = [
   'Numeracy',
   'Literacy',
@@ -151,13 +139,8 @@ export const PRIMARY_SUBJECTS = [
   'Handwriting',
 ];
 
-// Get subjects by class category
 export const getSubjectsByCategory = (className: string): string[] => {
-  if (className.includes('Nursery')) {
-    return NURSERY_SUBJECTS;
-  } else if (className.includes('Kindergarten')) {
-    return KINDERGARTEN_SUBJECTS;
-  } else {
-    return PRIMARY_SUBJECTS;
-  }
+  if (className.includes('Nursery')) return NURSERY_SUBJECTS;
+  if (className.includes('Kindergarten')) return KINDERGARTEN_SUBJECTS;
+  return PRIMARY_SUBJECTS;
 };

@@ -5,10 +5,10 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { classesService } from '@/lib/services/classes';
 import { studentsService } from '@/lib/services/students';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from 'sonner';
 import { RefreshCw, Users } from 'lucide-react';
-import { Class, Student } from '@/types';
+import { Class, Student } from '@/lib/types';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { BookOpen } from 'lucide-react';
 

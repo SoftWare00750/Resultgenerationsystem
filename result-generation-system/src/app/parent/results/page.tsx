@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { studentsService } from '@/lib/services/students';
 import { resultsService } from '@/lib/services/results';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from 'sonner';
 import { RefreshCw, Download, Eye } from 'lucide-react';
-import { Student, Result } from '@/types';
+import { Student, Result } from '@/lib/types';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { FileText } from 'lucide-react';
 import { formatDate, getOrdinalSuffix } from '@/lib/utils';
