@@ -1,4 +1,4 @@
-import { Student } from '@/types';
+import { Student } from '@/lib/types';
 import { ID } from '../id';
 import { getStore, setStore, KEYS } from '../storage';
 

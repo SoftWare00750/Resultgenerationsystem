@@ -1,4 +1,4 @@
-import { Class } from '@/types';
+import { Class } from '@/lib/types';
 import { ID } from '../id';
 import { getStore, setStore, KEYS } from '../storage';
 
