@@ -51,7 +51,7 @@ export default function LoginPage() {
         {/* Background image */}
         <div className="absolute inset-0">
           <Image
-            src="/images/RGS Logo.jpg"
+            src="/images/Result Generation System.jpg"
             alt="School"
             fill
             className="object-cover"
