@@ -53,14 +53,7 @@ export default function RegisterPage() {
             </Link>
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <Image
-            src="/images/RGS Logo.jpg"
-            alt="School"
-            fill
-            className="object-cover"
-            priority
-            onError={() => {}}
-          />
+                <UserRoleIcon role={form.role} className="w-5 h-5 text-white" />
               </div>
             </div>
             <h1 className="text-2xl font-bold">Create account</h1>
