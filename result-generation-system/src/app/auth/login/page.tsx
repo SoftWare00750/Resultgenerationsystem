@@ -51,7 +51,7 @@ export default function LoginPage() {
         {/* Background image */}
         <div className="absolute inset-0">
           <Image
-            src="/images/Result_Generation_System.jpg"
+            src="public/images/RGS Logo.jpg"
             alt="School"
             fill
             className="object-cover"
@@ -65,7 +65,14 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm">
-              <span className="text-white font-bold text-sm">RGS</span>
+              <Image
+            src="public/images/Result Generation System.jpg"
+            alt="School"
+            fill
+            className="object-cover"
+            priority
+            onError={() => {}}
+          />
             </div>
             <span className="text-white font-semibold text-lg tracking-tight">Result Generation System</span>
           </div>
@@ -111,7 +118,14 @@ export default function LoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">RGS</span>
+             <Image
+            src="public/images/Result Generation System.jpg"
+            alt="School"
+            fill
+            className="object-cover"
+            priority
+            onError={() => {}}
+          />
             </div>
             <span className="font-semibold text-lg">Result Generation System</span>
           </div>

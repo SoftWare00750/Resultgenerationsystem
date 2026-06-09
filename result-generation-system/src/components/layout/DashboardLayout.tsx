@@ -83,7 +83,14 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
       <div className={cn("flex h-16 items-center border-b px-5 bg-gradient-to-r", roleColors[role])}>
         <div className="flex items-center gap-3 w-full">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20">
-            <span className="text-sm font-bold text-white">RGS</span>
+            <Image
+            src="public/images/Result Generation System.jpg"
+            alt="School"
+            fill
+            className="object-cover"
+            priority
+            onError={() => {}}
+          />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white truncate">Result System</p>
