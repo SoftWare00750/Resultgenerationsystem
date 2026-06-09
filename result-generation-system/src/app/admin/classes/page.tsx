@@ -18,6 +18,7 @@ import { CLASS_OPTIONS } from '@/lib/types';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { BookOpen } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import Image from 'next/image';
 
 export default function ClassesPage() {
   const [classes, setClasses] = useState<Class[]>([]);

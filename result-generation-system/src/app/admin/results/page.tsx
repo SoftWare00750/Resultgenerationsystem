@@ -13,6 +13,7 @@ import { Result } from '@/lib/types';
 import { formatDate, getOrdinalSuffix } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { FileText } from 'lucide-react';
+import Image from 'next/image';
 
 export default function AdminResultsPage() {
   const [results, setResults] = useState<Result[]>([]);

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { authService } from '@/lib/services/auth';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { seedDefaults, ensureAdminPassword } from '@/lib/storage';
+import Image from 'next/image';
 
 export default function Home() {
   const router = useRouter();

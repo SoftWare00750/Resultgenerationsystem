@@ -15,6 +15,7 @@ import { Plus, RefreshCw, UserCircle } from 'lucide-react';
 import { Student } from '@/lib/types';
 import { CLASS_OPTIONS } from '@/lib/types';
 import { EmptyState } from '@/components/shared/EmptyState';
+import Image from 'next/image';
 
 export default function ParentWardsPage() {
   const { user } = useAuthStore();

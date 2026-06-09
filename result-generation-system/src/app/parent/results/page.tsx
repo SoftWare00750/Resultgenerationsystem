@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { FileText } from 'lucide-react';
 import { formatDate, getOrdinalSuffix } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import Image from 'next/image';
 
 export default function ParentResultsPage() {
   const { user } = useAuthStore();

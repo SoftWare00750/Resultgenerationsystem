@@ -11,6 +11,7 @@ import { RefreshCw, Users } from 'lucide-react';
 import { Class, Student } from '@/lib/types';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { BookOpen } from 'lucide-react';
+import Image from 'next/image';
 
 export default function TeacherClassesPage() {
   const { user } = useAuthStore();

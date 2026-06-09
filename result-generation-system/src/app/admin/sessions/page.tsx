@@ -16,6 +16,7 @@ import { formatDate } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Calendar } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import Image from 'next/image';
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);

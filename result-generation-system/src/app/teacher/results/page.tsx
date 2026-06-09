@@ -22,6 +22,7 @@ import { getSubjectsByCategory } from '@/lib/types';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { FileText } from 'lucide-react';
 import { formatDate, getOrdinalSuffix } from '@/lib/utils';
+import Image from 'next/image';
 
 export default function TeacherResultsPage() {
   const { user } = useAuthStore();

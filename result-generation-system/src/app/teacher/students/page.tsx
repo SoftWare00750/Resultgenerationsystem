@@ -14,6 +14,7 @@ import { RefreshCw } from 'lucide-react';
 import { Student, Class } from '@/lib/types';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { GraduationCap } from 'lucide-react';
+import Image from 'next/image';
 
 export default function TeacherStudentsPage() {
   const { user } = useAuthStore();

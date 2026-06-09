@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Plus, Copy, RefreshCw } from 'lucide-react';
 import { UserRole } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
+import Image from 'next/image';
 
 export default function AuthCodesPage() {
   const { user } = useAuthStore();

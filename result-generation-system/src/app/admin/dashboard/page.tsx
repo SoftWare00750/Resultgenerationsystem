@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { useAuthStore } from '@/lib/store/auth-store';
 import Link from 'next/link';
 import { seedDefaults, ensureAdminPassword } from '@/lib/storage';
+import Image from 'next/image';
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();

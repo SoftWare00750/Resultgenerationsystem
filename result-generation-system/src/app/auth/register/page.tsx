@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { UserRole } from '@/lib/types';
+import Image from 'next/image';
 
 export default function RegisterPage() {
   const router = useRouter();
