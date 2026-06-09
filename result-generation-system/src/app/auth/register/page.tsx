@@ -46,13 +46,13 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-md">
+      
           <div>
             <Link href="/auth/login" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
               <ArrowLeft className="h-3.5 w-3.5" /> Back to login
             </Link>
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <UserRoleIcon role={form.role} className="w-5 h-5 text-white" />
               </div>
             </div>
             <h1 className="text-2xl font-bold">Create account</h1>
@@ -114,6 +114,7 @@ export default function RegisterPage() {
             <Link href="/auth/login" className="font-medium text-foreground underline underline-offset-4">Sign in</Link>
           </p>
         </div>
+      </div>
     </div>
   );
 }
