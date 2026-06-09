@@ -8,6 +8,9 @@ export interface User {
   name: string;
   email: string;
   role?: string;
+  phone?: string;        // ← add this
+  assignedClasses?: string;  // ← add this
+  createdAt?: string;        // ← add this
 }
 
 interface AuthState {
@@ -20,7 +23,6 @@ interface AuthState {
   logout: () => void;
   setLoading: (loading: boolean) => void;
 }
-
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -56,5 +58,4 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
     }
   )
-  
 );
