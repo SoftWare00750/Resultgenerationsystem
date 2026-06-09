@@ -54,7 +54,7 @@ export default function RegisterPage() {
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
                 <Image
-            src="./../../../../../public/images/RGS Logo.jpg"
+            src="/images/RGS Logo.jpg"
             alt="School"
             fill
             className="object-cover"

@@ -51,7 +51,7 @@ export default function LoginPage() {
         {/* Background image */}
         <div className="absolute inset-0">
           <Image
-            src="./../../../public/images/RGS Logo.jpg"
+            src="/images/RGS Logo.jpg"
             alt="School"
             fill
             className="object-cover"
@@ -64,15 +64,15 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col justify-between h-full p-12">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm">
+            {/* FIX: use a sized wrapper with position:relative for fill Image */}
+            <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-white/20">
               <Image
-            src="./../../../../public/images/Result Generation System.jpg"
-            alt="School"
-            fill
-            className="object-cover"
-            priority
-            onError={() => {}}
-          />
+                src="/images/Result Generation System.jpg"
+                alt="Result Generation System Logo"
+                fill
+                className="object-cover"
+                priority
+              />
             </div>
             <span className="text-white font-semibold text-lg tracking-tight">Result Generation System</span>
           </div>
@@ -117,15 +117,15 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-             <Image
-            src="./../../../public/images/Result Generation System.jpg"
-            alt="School"
-            fill
-            className="object-cover"
-            priority
-            onError={() => {}}
-          />
+            {/* FIX: use a sized wrapper with position:relative for fill Image */}
+            <div className="relative w-10 h-10 rounded-xl overflow-hidden">
+              <Image
+                src="/images/Result Generation System.jpg"
+                alt="Result Generation System Logo"
+                fill
+                className="object-cover"
+                priority
+              />
             </div>
             <span className="font-semibold text-lg">Result Generation System</span>
           </div>
