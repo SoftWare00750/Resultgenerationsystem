@@ -51,7 +51,7 @@ export default function LoginPage() {
         {/* Background image */}
         <div className="absolute inset-0">
           <Image
-            src="./../../public/images/RGS Logo.jpg"
+            src="./../../../public/images/RGS Logo.jpg"
             alt="School"
             fill
             className="object-cover"
@@ -119,7 +119,7 @@ export default function LoginPage() {
           <div className="lg:hidden flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
              <Image
-            src="./../../public/images/Result Generation System.jpg"
+            src="./../../../public/images/Result Generation System.jpg"
             alt="School"
             fill
             className="object-cover"
