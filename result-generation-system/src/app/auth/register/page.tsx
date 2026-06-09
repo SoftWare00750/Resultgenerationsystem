@@ -55,9 +55,9 @@ export default function RegisterPage() {
               
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
                 <Image
-                src="/images/Result Generation System.jpg"
+                src="/images/Result Generation System trans.png"
                 alt="Result Generation System Logo"
-                className="object-cover w-7 h-7"
+                className="object-cover"
                 priority
 
               />
