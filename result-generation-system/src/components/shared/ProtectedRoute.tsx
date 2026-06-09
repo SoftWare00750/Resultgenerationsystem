@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const router = useRouter();
-  const { user, setUser, loading, setLoading } = useAuthStore();
+ const { user, setUser, isLoading: loading, setLoading } = useAuthStore();
 
   useEffect(() => {
     const checkAuth = async () => {
