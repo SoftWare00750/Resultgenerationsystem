@@ -63,7 +63,7 @@ export default function ParentWardsPage() {
         ...formData,
         parentId: user.$id,
         guardianName: user.name,
-        guardianPhone: user.phone?.trim() || '',
+        guardianPhone: user.phone || '',
       });
 
       toast.success('Ward registered successfully');
