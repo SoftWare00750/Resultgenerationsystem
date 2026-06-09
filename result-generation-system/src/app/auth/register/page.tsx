@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
-import { UserRole } from '@/types';
+import { UserRole } from '@/lib/types';
 
 export default function RegisterPage() {
   const router = useRouter();
