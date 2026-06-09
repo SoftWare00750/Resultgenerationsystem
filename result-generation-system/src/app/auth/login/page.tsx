@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/lib/services/auth';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

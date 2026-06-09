@@ -9,7 +9,7 @@ import { resultsService } from '@/lib/services/results';
 import { classesService } from '@/lib/services/classes';
 import { sessionsService } from '@/lib/services/sessions';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import Link from 'next/link';
 import { seedDefaults, ensureAdminPassword } from '@/lib/storage';
 

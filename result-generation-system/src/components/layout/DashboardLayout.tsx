@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/button';
 import { authService } from '@/lib/services/auth';
 import {

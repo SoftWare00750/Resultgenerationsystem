@@ -1,4 +1,4 @@
-import { Result, Subject, GRADING_SCALE } from '@/types';
+import { Result, Subject, GRADING_SCALE } from '@/lib/types';
 import { ID } from '../id';
 import { getStore, setStore, KEYS } from '../storage';
 
