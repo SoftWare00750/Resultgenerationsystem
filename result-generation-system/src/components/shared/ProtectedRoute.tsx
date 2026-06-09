@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const router = useRouter();
- const { user, setUser, isLoading: loading, setLoading } = useAuthStore();
+  const { user, setUser, isLoading: loading, setLoading } = useAuthStore();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -26,7 +26,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
           return;
         }
 
-        if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
+        if (allowedRoles && !allowedRoles.includes(currentUser.role as UserRole)) {
           router.push(`/${currentUser.role}/dashboard`);
           return;
         }
