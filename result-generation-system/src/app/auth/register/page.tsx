@@ -52,14 +52,14 @@ export default function RegisterPage() {
               <ArrowLeft className="h-3.5 w-3.5" /> Back to login
             </Link>
             <div className="flex items-center gap-3 mb-5">
-              <Image
+              
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+                <Image
                 src="/images/Result Generation System.jpg"
                 alt="Result Generation System Logo"
                 className="object-cover"
                 priority
               />
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                
               </div>
             </div>
             <h1 className="text-2xl font-bold">Create account</h1>
