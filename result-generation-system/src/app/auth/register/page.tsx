@@ -46,7 +46,6 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-md">
-        <div className="bg-background rounded-2xl border shadow-sm p-8 space-y-6">
           <div>
             <Link href="/auth/login" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
               <ArrowLeft className="h-3.5 w-3.5" /> Back to login
@@ -115,7 +114,6 @@ export default function RegisterPage() {
             <Link href="/auth/login" className="font-medium text-foreground underline underline-offset-4">Sign in</Link>
           </p>
         </div>
-      </div>
     </div>
   );
 }
