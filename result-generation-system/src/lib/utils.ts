@@ -1,31 +1,23 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { format, parseISO, isValid } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: Date | string): string {
-  const d = new Date(date);
-
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+export function formatDate(dateString: string, formatStr: string = 'PPP'): string {
+  try {
+    const date = parseISO(dateString);
+    if (!isValid(date)) return dateString;
+    return format(date, formatStr);
+  } catch {
+    return dateString;
+  }
 }
 
-export function getOrdinalSuffix(day: number): string {
-  if (day > 3 && day < 21) return "th";
-
-  switch (day % 10) {
-    case 1:
-      return "st";
-    case 2:
-      return "nd";
-    case 3:
-      return "rd";
-    default:
-      return "th";
-  }
+export function getOrdinalSuffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }

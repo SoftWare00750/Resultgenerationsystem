@@ -21,6 +21,7 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
 }
 
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -55,4 +56,5 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
     }
   )
+  
 );
