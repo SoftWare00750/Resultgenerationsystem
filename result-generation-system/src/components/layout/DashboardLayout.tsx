@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { UserRole } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 interface DashboardLayoutProps {
   children: ReactNode;
