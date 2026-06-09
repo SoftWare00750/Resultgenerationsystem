@@ -57,8 +57,9 @@ export default function RegisterPage() {
                 <Image
                 src="/images/Result Generation System.jpg"
                 alt="Result Generation System Logo"
-                className="object-cover"
+                className="object-cover w-7 h-7"
                 priority
+
               />
               </div>
             </div>
