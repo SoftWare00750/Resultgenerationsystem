@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { UserRole } from '@/types';
+import { UserRole } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface DashboardLayoutProps {
