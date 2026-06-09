@@ -1,4 +1,4 @@
-import { User, UserRole } from '@/types';
+import { User, UserRole } from '@/lib/types';
 import { ID } from '../id';
 import { getStore, setStore, KEYS, getPasswords, setPassword, seedDefaults, ensureAdminPassword } from '../storage';
 
