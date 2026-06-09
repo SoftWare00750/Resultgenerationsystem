@@ -53,15 +53,14 @@ export default function RegisterPage() {
             </Link>
             <div className="flex items-center gap-3 mb-5">
               
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center color-white">
-                <Image
-                src="/images/Result Generation System trans.png"
-                alt="Result Generation System Logo"
-                className="object-cover"
-                priority
-
-              />
-              </div>
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center bg-black">
+             <Image
+              src="/images/Result Generation System trans.png"
+              alt="Result Generation System Logo"
+              className="object-cover"
+               priority
+             />
+            </div>
             </div>
             <h1 className="text-2xl font-bold">Create account</h1>
             <p className="text-muted-foreground text-sm mt-1">Register with your authorization code</p>
