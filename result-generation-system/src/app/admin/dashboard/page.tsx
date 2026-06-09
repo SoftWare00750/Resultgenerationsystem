@@ -23,21 +23,22 @@ export default function AdminDashboard() {
     seedDefaults(); ensureAdminPassword();
     const load = async () => {
       try {
-        const [users, students, results, classes, session] = await Promise.all([
-          authService.getAllUsers(),
-          studentsService.getAllStudents(),
-          resultsService.getAllResults(),
-          classesService.getAllClasses(),
-          sessionsService.getActiveSession(),
-        ]);
-        setStats({
-          users: users.filter(u => u.role !== 'admin').length,
-          students: students.length,
-          results: results.length,
-          classes: classes.length,
-          published: results.filter(r => r.published).length,
-          drafts: results.filter(r => !r.published).length,
-        });
+       const [users, students, results, classes, session] = await Promise.all([
+  authService.getAllUsers(),
+  studentsService.getAllStudents(),
+  resultsService.getAllResults(),
+  classesService.getAllClasses(),
+  sessionsService.getActiveSession(),
+]);
+
+setStats({
+  users: users.filter((u: any) => u.role !== 'admin').length,
+  students: students.length,
+  results: results.length,
+  classes: classes.length,
+  published: results.filter((r: any) => r.published).length,
+  drafts: results.filter((r: any) => !r.published).length,
+});
         if (session) setActiveSession(session.year);
       } finally { setLoading(false); }
     };
