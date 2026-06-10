@@ -1,38 +1,75 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { classesService } from '@/lib/services/classes';
-import { authService } from '@/lib/services/auth';
-import { toast } from 'sonner';
-import { Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
-import { Class, ClassCategory, User } from '@/lib/types';
-import { CLASS_OPTIONS } from '@/lib/types';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { BookOpen } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import Image from 'next/image';
+import { useEffect, useState } from "react";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
+import { classesService } from "@/lib/services/classes";
+import { authService } from "@/lib/services/auth";
+import { studentsService } from "@/lib/services/students";
+import { toast } from "sonner";
+import { Plus, Edit, Trash2, RefreshCw, BookOpen, Users } from "lucide-react";
+import { Class, ClassCategory, User, CLASS_OPTIONS } from "@/lib/types";
 
 export default function ClassesPage() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
+  const [studentCounts, setStudentCounts] = useState<Record<string, number>>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
-  
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+
   const [formData, setFormData] = useState({
-    name: '',
-    category: 'Primary' as ClassCategory,
-    assignedTeacherId: '',
+    name: "",
+    category: "Primary" as ClassCategory,
+    assignedTeacherId: "",
   });
 
   const fetchData = async () => {
@@ -42,9 +79,19 @@ export default function ClassesPage() {
         authService.getAllUsers(),
       ]);
       setClasses(classesData);
-      setTeachers(usersData.filter(u => u.role === 'teacher'));
-    } catch (error) {
-      toast.error('Failed to fetch data');
+      setTeachers(usersData.filter((u: any) => u.role === "teacher") as User[]);
+
+      // Fetch student counts for each class
+      const counts: Record<string, number> = {};
+      await Promise.all(
+        classesData.map(async (cls) => {
+          const students = await studentsService.getStudentsByClass(cls.name);
+          counts[cls.$id] = students.length;
+        })
+      );
+      setStudentCounts(counts);
+    } catch {
+      toast.error("Failed to fetch data");
     } finally {
       setLoading(false);
     }
@@ -54,111 +101,142 @@ export default function ClassesPage() {
     fetchData();
   }, []);
 
+  // Auto-set category when name is selected
+  const handleNameChange = (name: string) => {
+    let category: ClassCategory = "Primary";
+    if (name.includes("Nursery")) category = "Nursery";
+    else if (name.includes("Kindergarten")) category = "Kindergarten";
+    setFormData((f) => ({ ...f, name, category }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    if (!formData.name) {
+      toast.error("Please select a class name");
+      return;
+    }
+    setSaving(true);
     try {
       if (editingClass) {
         await classesService.updateClass(editingClass.$id, formData);
-        toast.success('Class updated successfully');
+        toast.success("Class updated");
       } else {
-        await classesService.createClass({
-          ...formData,
-          students: [],
-        });
-        toast.success('Class created successfully');
+        await classesService.createClass({ ...formData, students: [] });
+        toast.success("Class created");
       }
       setDialogOpen(false);
       resetForm();
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to save class');
+      toast.error(error.message || "Failed to save class");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleEdit = (classItem: Class) => {
-    setEditingClass(classItem);
+  const handleEdit = (cls: Class) => {
+    setEditingClass(cls);
     setFormData({
-      name: classItem.name,
-      category: classItem.category,
-      assignedTeacherId: classItem.assignedTeacherId || '',
+      name: cls.name,
+      category: cls.category,
+      assignedTeacherId: cls.assignedTeacherId || "",
     });
     setDialogOpen(true);
   };
 
-  const handleDeleteClick = (classItem: Class) => {
-    setSelectedClass(classItem);
-    setDeleteDialogOpen(true);
-  };
-
   const handleDeleteConfirm = async () => {
     if (!selectedClass) return;
-
     try {
       await classesService.deleteClass(selectedClass.$id);
-      toast.success('Class deleted successfully');
+      toast.success("Class deleted");
       setDeleteDialogOpen(false);
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete class');
+      toast.error(error.message || "Failed to delete class");
     }
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      category: 'Primary',
-      assignedTeacherId: '',
-    });
+    setFormData({ name: "", category: "Primary", assignedTeacherId: "" });
     setEditingClass(null);
   };
 
   const getTeacherName = (teacherId?: string) => {
-    if (!teacherId) return 'Unassigned';
-    const teacher = teachers.find(t => t.$id === teacherId);
-    return teacher?.name || 'Unknown';
+    if (!teacherId) return "—";
+    const t = teachers.find((t) => t.$id === teacherId);
+    return t?.name || "Unknown";
+  };
+
+  const filteredClasses =
+    filterCategory === "all"
+      ? classes
+      : classes.filter((c) => c.category === filterCategory);
+
+  const categoryCounts = {
+    Nursery: classes.filter((c) => c.category === "Nursery").length,
+    Kindergarten: classes.filter((c) => c.category === "Kindergarten").length,
+    Primary: classes.filter((c) => c.category === "Primary").length,
+  };
+
+  const categoryColor: Record<string, string> = {
+    Nursery: "bg-pink-100 text-pink-700",
+    Kindergarten: "bg-purple-100 text-purple-700",
+    Primary: "bg-blue-100 text-blue-700",
   };
 
   return (
     <DashboardLayout role="admin">
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Manage Classes</h1>
-            <p className="text-muted-foreground">Create and assign classes to teachers</p>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <BookOpen className="h-6 w-6" />
+              Manage Classes
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Create classes and assign teachers to them
+            </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) resetForm();
-          }}>
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) resetForm();
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Class
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>{editingClass ? 'Edit Class' : 'Add New Class'}</DialogTitle>
+                <DialogTitle>
+                  {editingClass ? "Edit Class" : "Add New Class"}
+                </DialogTitle>
                 <DialogDescription>
-                  {editingClass ? 'Update class information' : 'Create a new class and assign a teacher'}
+                  {editingClass
+                    ? "Update the class details below"
+                    : "Configure a new class and optionally assign a teacher"}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit}>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="className">Class Name</Label>
-                    <Select 
-                      value={formData.name} 
-                      onValueChange={(value) => setFormData({ ...formData, name: value })}
+                    <Label>Class Name *</Label>
+                    <Select
+                      value={formData.name}
+                      onValueChange={handleNameChange}
                     >
-                      <SelectTrigger id="className">
-                        <SelectValue placeholder="Select class" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a class" />
                       </SelectTrigger>
                       <SelectContent>
-                        {CLASS_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
+                        {CLASS_OPTIONS.map((opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            {opt}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -166,12 +244,17 @@ export default function ClassesPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Select 
-                      value={formData.category} 
-                      onValueChange={(value) => setFormData({ ...formData, category: value as ClassCategory })}
+                    <Label>Category</Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(v) =>
+                        setFormData((f) => ({
+                          ...f,
+                          category: v as ClassCategory,
+                        }))
+                      }
                     >
-                      <SelectTrigger id="category">
+                      <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -183,31 +266,55 @@ export default function ClassesPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="teacher">Assigned Teacher</Label>
-                    <Select 
-                      value={formData.assignedTeacherId} 
-                      onValueChange={(value) => setFormData({ ...formData, assignedTeacherId: value })}
+                    <Label>Assigned Teacher</Label>
+                    <Select
+                      value={formData.assignedTeacherId || "none"}
+                      onValueChange={(v) =>
+                        setFormData((f) => ({
+                          ...f,
+                          assignedTeacherId: v === "none" ? "" : v,
+                        }))
+                      }
                     >
-                      <SelectTrigger id="teacher">
-                        <SelectValue placeholder="Select teacher" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Unassigned" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Unassigned</SelectItem>
-                        {teachers.map((teacher) => (
-                          <SelectItem key={teacher.$id} value={teacher.$id}>
-                            {teacher.name}
+                        <SelectItem value="none">— Unassigned —</SelectItem>
+                        {teachers.map((t) => (
+                          <SelectItem key={t.$id} value={t.$id}>
+                            {t.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {teachers.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No teachers registered yet. Generate an auth code for a
+                        teacher first.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit">
-                    {editingClass ? 'Update' : 'Create'}
+                  <Button type="submit" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Saving…
+                      </>
+                    ) : editingClass ? (
+                      "Update Class"
+                    ) : (
+                      "Create Class"
+                    )}
                   </Button>
                 </DialogFooter>
               </form>
@@ -215,26 +322,82 @@ export default function ClassesPage() {
           </Dialog>
         </div>
 
+        {/* Category summary */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          {(["Nursery", "Kindergarten", "Primary"] as const).map((cat) => (
+            <Card
+              key={cat}
+              className={`cursor-pointer transition-all border-2 ${
+                filterCategory === cat
+                  ? "border-primary"
+                  : "border-transparent hover:border-muted"
+              }`}
+              onClick={() =>
+                setFilterCategory(filterCategory === cat ? "all" : cat)
+              }
+            >
+              <CardContent className="flex items-center gap-4 p-5">
+                <div
+                  className={`px-2.5 py-1.5 rounded-lg text-sm font-semibold ${categoryColor[cat]}`}
+                >
+                  {cat[0]}
+                </div>
+                <div>
+                  <p className="font-semibold">{categoryCounts[cat]}</p>
+                  <p className="text-xs text-muted-foreground">{cat} classes</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Table */}
         <Card>
           <CardHeader>
-            <CardTitle>All Classes</CardTitle>
-            <CardDescription>Manage classes and teacher assignments</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>
+                  {filterCategory === "all" ? "All Classes" : `${filterCategory} Classes`}
+                </CardTitle>
+                <CardDescription>
+                  {filteredClasses.length} class
+                  {filteredClasses.length !== 1 ? "es" : ""}
+                  {filterCategory !== "all" && (
+                    <button
+                      className="ml-2 text-xs underline text-primary"
+                      onClick={() => setFilterCategory("all")}
+                    >
+                      Clear filter
+                    </button>
+                  )}
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex justify-center py-8">
-                <RefreshCw className="h-6 w-6 animate-spin" />
+              <div className="flex justify-center py-12">
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : classes.length === 0 ? (
-              <EmptyState
-                icon={BookOpen}
-                title="No classes created"
-                description="Create your first class to get started"
-                action={{
-                  label: "Add Class",
-                  onClick: () => setDialogOpen(true)
-                }}
-              />
+            ) : filteredClasses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <BookOpen className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="font-medium">No classes found</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">
+                  {filterCategory !== "all"
+                    ? `No ${filterCategory} classes exist yet`
+                    : "Create your first class to get started"}
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Class
+                </Button>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -244,29 +407,58 @@ export default function ClassesPage() {
                       <TableHead>Category</TableHead>
                       <TableHead>Assigned Teacher</TableHead>
                       <TableHead>Students</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {classes.map((classItem) => (
-                      <TableRow key={classItem.$id}>
-                        <TableCell className="font-medium">{classItem.name}</TableCell>
-                        <TableCell>{classItem.category}</TableCell>
-                        <TableCell>{getTeacherName(classItem.assignedTeacherId)}</TableCell>
-                        <TableCell>{classItem.students?.length || 0}</TableCell>
+                    {filteredClasses.map((cls) => (
+                      <TableRow key={cls.$id}>
+                        <TableCell className="font-semibold">
+                          {cls.name}
+                        </TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              categoryColor[cls.category] ||
+                              "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {cls.category}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {cls.assignedTeacherId ? (
+                            <span className="flex items-center gap-1 text-sm">
+                              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                              {getTeacherName(cls.assignedTeacherId)}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground italic">
+                              Unassigned
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {studentCounts[cls.$id] ?? 0}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEdit(classItem)}
+                              onClick={() => handleEdit(cls)}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteClick(classItem)}
+                              onClick={() => {
+                                setSelectedClass(cls);
+                                setDeleteDialogOpen(true);
+                              }}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
@@ -285,15 +477,20 @@ export default function ClassesPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {selectedClass?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {selectedClass?.name}. This action cannot be undone.
+              This will permanently remove this class. Students assigned to this
+              class will not be deleted, but will no longer have a class
+              association. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
-              Delete
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete Class
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
