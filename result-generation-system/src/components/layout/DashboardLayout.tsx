@@ -80,28 +80,28 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
       "fixed left-0 top-0 z-40 h-screen w-64 border-r bg-background flex flex-col transition-transform duration-300",
       sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
     )}>
+      
       {/* Logo */}
-      <div className={cn("flex h-16 items-center border-b px-5 bg-gradient-to-r", roleColors[role])}>
-        <div className="flex items-center gap-3 w-full">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20">
-            <Image
-            src="public/images/Result Generation System.jpg"
-            alt="School"
-            fill
-            className="object-cover"
-            priority
-            onError={() => {}}
-          />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">Result System</p>
-            <p className="text-xs text-white/60 capitalize">{role} Portal</p>
-          </div>
-          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-white/70 hover:text-white">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
+<div className={cn("flex h-16 items-center border-b px-5 bg-gradient-to-r", roleColors[role])}>
+  <div className="flex items-center gap-3 w-full">
+    <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20 overflow-hidden">
+      <Image
+        src="/images/Result%20Generation%20System.jpg"
+        alt="Result Generation System Logo"
+        fill
+        className="object-cover"
+        priority
+      />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-semibold text-white truncate">Result System</p>
+      <p className="text-xs text-white/60 capitalize">{role} Portal</p>
+    </div>
+    <button onClick={() => setSidebarOpen(false)} className="md:hidden text-white/70 hover:text-white">
+      <X className="h-5 w-5" />
+    </button>
+  </div>
+</div>
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto">

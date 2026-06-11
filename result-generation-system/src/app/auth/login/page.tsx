@@ -67,7 +67,7 @@ export default function LoginPage() {
             {/* FIX: use a sized wrapper with position:relative for fill Image */}
             <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-white/20">
               <Image
-                src="/images/Result Generation System.jpg"
+                src="/images/Result%20Generation%20System.jpg"
                 alt="Result Generation System Logo"
                 fill
                 className="object-cover"
