@@ -8,6 +8,11 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Result Generation System",
   description: "Complete school result management system for Nigerian schools",
+  // Add the icons object here
+  icons: {
+    icon: "/Result Generation System.png", // Points to public/logo.png
+    // apple: "/apple-touch-icon.png", // Optional: for Apple devices
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
