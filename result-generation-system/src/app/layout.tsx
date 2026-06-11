@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: "Complete school result management system for Nigerian schools",
   // Add the icons object here
   icons: {
-    icon: "/Result Generation System.png", // Points to public/logo.png
+    icon: "/Result Generation System.jpg", // Points to public/logo.png
     // apple: "/apple-touch-icon.png", // Optional: for Apple devices
   },
 };
