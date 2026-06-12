@@ -207,7 +207,7 @@ export default function TeacherResultsPage() {
     setActiveTab("student");
   };
 
-  const handleAssessmentChange = (index: number, field: "cat" | "assignment" | "exam", value: string) => {
+  const handleAssessmentChange = (index: number, field: "cat1" | "cat2" | "assignment" | "exam", value: string) => {
     const numValue = Math.max(0, parseFloat(value) || 0);
     const updated = [...subjects];
     
