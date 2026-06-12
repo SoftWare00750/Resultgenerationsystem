@@ -124,8 +124,11 @@ export default function TeacherStudentsPage() {
       } else {
         // --- CREATE MODE ---
         const newStudentId = "local_" + Date.now().toString();
+        
+        // FIX: Injected the required 'createdAt' property to satisfy the Student type
         const newStudentItem: Student = {
           $id: newStudentId,
+          createdAt: new Date().toISOString(),
           ...formData
         };
 
