@@ -487,17 +487,7 @@ export default function TeacherResultsPage() {
                                   className="h-8"
                                 />
                               </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  placeholder="0"
-                                  value={subject.assignment || ""}
-                                  onChange={(e) => handleAssessmentChange(index, "assignment", e.target.value)}
-                                  className="h-8"
-                                />
-                              </TableCell>
+                              
                               <TableCell>
                                 <Input
                                   type="number"
