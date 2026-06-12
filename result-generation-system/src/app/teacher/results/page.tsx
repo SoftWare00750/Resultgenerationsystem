@@ -74,7 +74,6 @@ interface AssessmentSubject {
   name: string;
   cat1: number;
   cat2: number;
-  assignment: number;
   exam: number;
   score: number; // calculated total (cat1 + cat2 + assignment + exam)
   grade: string;
@@ -197,7 +196,6 @@ export default function TeacherResultsPage() {
         name, 
         cat1: 0, 
         cat2: 0, 
-        assignment: 0, 
         exam: 0, 
         score: 0, 
         grade: "", 
@@ -207,7 +205,7 @@ export default function TeacherResultsPage() {
     setActiveTab("student");
   };
 
-  const handleAssessmentChange = (index: number, field: "cat1" | "cat2" | "assignment" | "exam", value: string) => {
+  const handleAssessmentChange = (index: number, field: "cat1" | "cat2" | "exam", value: string) => {
     const numValue = Math.max(0, parseFloat(value) || 0);
     const updated = [...subjects];
     
@@ -215,7 +213,7 @@ export default function TeacherResultsPage() {
     updated[index][field] = numValue;
 
     // Recalculate dynamic cumulative score
-    const computedTotal = updated[index].cat1 + updated[index].cat2 + updated[index].assignment + updated[index].exam;
+    const computedTotal = updated[index].cat1 + updated[index].cat2 + updated[index].exam;
     updated[index].score = Math.min(100, computedTotal);
 
     // Apply grading based on aggregated sum
@@ -237,7 +235,7 @@ export default function TeacherResultsPage() {
     }
     const updated = [
       ...subjects, 
-      { name: newSubjectName.trim(), cat1: 0, cat2: 0, assignment: 0, exam: 0, score: 0, grade: "", remark: "" }
+      { name: newSubjectName.trim(), cat1: 0, cat2: 0, exam: 0, score: 0, grade: "", remark: "" }
     ];
     setSubjects(updated);
     setNewSubjectName("");
@@ -453,7 +451,6 @@ export default function TeacherResultsPage() {
                             <TableHead className="min-w-[150px]">Subject</TableHead>
                             <TableHead className="w-[100px]">CAT1</TableHead>
                             <TableHead className="w-[100px]">CAT2</TableHead>
-                            <TableHead className="w-[100px]">Assignment</TableHead>
                             <TableHead className="w-[100px]">Exam</TableHead>
                             <TableHead className="w-[90px] font-bold">Total</TableHead>
                             <TableHead className="w-[80px]">Grade</TableHead>
