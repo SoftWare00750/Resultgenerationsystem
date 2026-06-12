@@ -61,12 +61,12 @@ import {
   Globe,
   EyeOff,
   Trash2,
+  FileText,
 } from "lucide-react";
 import { Student, Result, Subject, Term, ResultType, Session } from "@/lib/types";
 import { getSubjectsByCategory } from "@/lib/types";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { FileText } from "lucide-react";
-import { formatDate, getOrdinalSuffix } from "@/lib/utils";
+import { getOrdinalSuffix } from "@/lib/utils";
 
 export default function TeacherResultsPage() {
   const { user } = useAuthStore();

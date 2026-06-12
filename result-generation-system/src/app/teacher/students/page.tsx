@@ -44,6 +44,14 @@ export default function TeacherStudentsPage() {
   // Helper key for localStorage persistence
   const LOCAL_STORAGE_KEY = "system_students_backup";
 
+  // Helper to dispatch global changes across tabs/views
+  const notifyStorageUpdate = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new CustomEvent("localStudentsUpdated"));
+    }
+  };
+
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
@@ -125,7 +133,6 @@ export default function TeacherStudentsPage() {
         // --- CREATE MODE ---
         const newStudentId = "local_" + Date.now().toString();
         
-        // FIX: Injected the required 'createdAt' property to satisfy the Student type
         const newStudentItem: Student = {
           $id: newStudentId,
           createdAt: new Date().toISOString(),
@@ -144,6 +151,9 @@ export default function TeacherStudentsPage() {
       // Commit changes immediately to localStorage
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedStudentsList));
       setStudents(updatedStudentsList);
+      
+      // Fire notification event so result management windows pick up fallback records
+      notifyStorageUpdate();
 
       setDialogOpen(false);
       resetForm();
@@ -165,6 +175,9 @@ export default function TeacherStudentsPage() {
       const updatedList = students.filter(s => s.$id !== selectedStudent.$id);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedList));
       setStudents(updatedList);
+      
+      // Update other views
+      notifyStorageUpdate();
 
       toast.success('Student record removed successfully');
       setDeleteDialogOpen(false);
