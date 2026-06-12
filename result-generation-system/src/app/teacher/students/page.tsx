@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,13 +14,12 @@ import { studentsService } from "@/lib/services/students";
 import { authService } from '@/lib/services/auth';
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
-import { RefreshCw, GraduationCap } from "lucide-react";
-import { Student, User } from "@/lib/types";
-import { CLASS_OPTIONS } from '@/lib/types';
+import { Student, User, CLASS_OPTIONS } from "@/lib/types";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { GraduationCap } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+
+// FIX: Combined all Lucide icons into a single clean import statement
+import { Plus, Edit, Trash2, RefreshCw, GraduationCap } from 'lucide-react';
 
 export default function TeacherStudentsPage() {
   const { user } = useAuthStore();
@@ -43,15 +43,14 @@ export default function TeacherStudentsPage() {
     address: '',
   });
 
-
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
     try {
       const classes = await classesService.getClassesByTeacher(user.$id);
       const [studentsData, usersData] = await Promise.all([
-              studentsService.getAllStudents(),
-              authService.getAllUsers(),
+        studentsService.getAllStudents(),
+        authService.getAllUsers(),
       ]);
       const all: Student[] = [];
       for (const c of classes) {
@@ -161,156 +160,159 @@ export default function TeacherStudentsPage() {
             <h1 className="text-3xl font-bold">My Students</h1>
             <p className="text-muted-foreground">Manage Students in your assigned classes</p>
           </div>
-           <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Student
-              </Button>
-            </DialogTrigger>
-          <Button onClick={fetchData} variant="outline" disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ?  "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingStudent ? 'Edit Student' : 'Add New Student'}</DialogTitle>
-                <DialogDescription>
-                  {editingStudent ? 'Update student information' : 'Enter student details'}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit}>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name *</Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                      />
+          <div className="flex gap-2">
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Student
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingStudent ? 'Edit Student' : 'Add New Student'}</DialogTitle>
+                  <DialogDescription>
+                    {editingStudent ? 'Update student information' : 'Enter student details'}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Full Name *</Label>
+                        <Input
+                          id="name"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="admissionNumber">Admission Number *</Label>
+                        <Input
+                          id="admissionNumber"
+                          value={formData.admissionNumber}
+                          onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
+                          required
+                          disabled={!!editingStudent}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="admissionNumber">Admission Number *</Label>
-                      <Input
-                        id="admissionNumber"
-                        value={formData.admissionNumber}
-                        onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
-                        required
-                        disabled={!!editingStudent}
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="class">Class *</Label>
-                      <Select 
-                        value={formData.class} 
-                        onValueChange={(value) => setFormData({ ...formData, class: value })}
-                      >
-                        <SelectTrigger id="class">
-                          <SelectValue placeholder="Select class" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CLASS_OPTIONS.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="class">Class *</Label>
+                        <Select 
+                          value={formData.class} 
+                          onValueChange={(value) => setFormData({ ...formData, class: value })}
+                        >
+                          <SelectTrigger id="class">
+                            <SelectValue placeholder="Select class" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CLASS_OPTIONS.map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="gender">Gender *</Label>
+                        <Select 
+                          value={formData.gender} 
+                          onValueChange={(value) => setFormData({ ...formData, gender: value as 'Male' | 'Female' })}
+                        >
+                          <SelectTrigger id="gender">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Male">Male</SelectItem>
+                            <SelectItem value="Female">Female</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="gender">Gender *</Label>
-                      <Select 
-                        value={formData.gender} 
-                        onValueChange={(value) => setFormData({ ...formData, gender: value as 'Male' | 'Female' })}
-                      >
-                        <SelectTrigger id="gender">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Male">Male</SelectItem>
-                          <SelectItem value="Female">Female</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                        <Input
+                          id="dateOfBirth"
+                          type="date"
+                          value={formData.dateOfBirth}
+                          onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="parent">Parent/Guardian *</Label>
+                        <Select 
+                          value={formData.parentId} 
+                          onValueChange={(value) => setFormData({ ...formData, parentId: value })}
+                        >
+                          <SelectTrigger id="parent">
+                            <SelectValue placeholder="Select parent" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {parents.map((parent) => (
+                              <SelectItem key={parent.$id} value={parent.$id}>
+                                {parent.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="guardianName">Guardian Name</Label>
+                        <Input
+                          id="guardianName"
+                          value={formData.guardianName}
+                          onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="guardianPhone">Guardian Phone</Label>
+                        <Input
+                          id="guardianPhone"
+                          value={formData.guardianPhone}
+                          onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                      <Label htmlFor="address">Address</Label>
                       <Input
-                        id="dateOfBirth"
-                        type="date"
-                        value={formData.dateOfBirth}
-                        onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                        id="address"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="parent">Parent/Guardian *</Label>
-                      <Select 
-                        value={formData.parentId} 
-                        onValueChange={(value) => setFormData({ ...formData, parentId: value })}
-                      >
-                        <SelectTrigger id="parent">
-                          <SelectValue placeholder="Select parent" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {parents.map((parent) => (
-                            <SelectItem key={parent.$id} value={parent.$id}>
-                              {parent.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">
+                      {editingStudent ? 'Update' : 'Create'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="guardianName">Guardian Name</Label>
-                      <Input
-                        id="guardianName"
-                        value={formData.guardianName}
-                        onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="guardianPhone">Guardian Phone</Label>
-                      <Input
-                        id="guardianPhone"
-                        value={formData.guardianPhone}
-                        onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input
-                      id="address"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">
-                    {editingStudent ? 'Update' : 'Create'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+            <Button onClick={fetchData} variant="outline" disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -342,7 +344,7 @@ export default function TeacherStudentsPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Class</TableHead>
                       <TableHead>Gender</TableHead>
-                       <TableHead>Parent</TableHead>
+                      <TableHead>Parent</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
