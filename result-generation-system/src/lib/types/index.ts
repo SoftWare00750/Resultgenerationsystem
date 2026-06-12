@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   role?: string;
-  phone?: string; 
+  phone?: string;
   assignedClasses?: string;
   createdAt: string;
 }
@@ -34,6 +34,12 @@ export interface Subject {
 export type Term = 'First' | 'Second' | 'Third';
 export type ResultType = 'Midterm' | 'Examination';
 
+export interface Attendance {
+  opened: number;
+  present: number;
+  absent: number;
+}
+
 export interface Result {
   $id: string;
   studentId: string;
@@ -55,6 +61,12 @@ export interface Result {
   createdBy: string;
   createdAt: string;
   updatedAt?: string;
+  // Additional report-sheet information
+  attendance?: Attendance;
+  affectiveDomain?: Record<string, number>;
+  psychomotorSkills?: Record<string, number>;
+  house?: string;
+  club?: string;
 }
 
 export type ClassCategory = 'Nursery' | 'Kindergarten' | 'Primary';
@@ -65,6 +77,7 @@ export interface Class {
   category: ClassCategory;
   assignedTeacherId?: string;
   students: string[];
+  subjects?: string[];
   createdAt: string;
 }
 
@@ -144,3 +157,66 @@ export const getSubjectsByCategory = (className: string): string[] => {
   if (className.includes('Kindergarten')) return KINDERGARTEN_SUBJECTS;
   return PRIMARY_SUBJECTS;
 };
+
+// ---------------------------------------------------------------------------
+// Result-sheet extras: Affective Domain, Psychomotor Skills, House & Club
+// ---------------------------------------------------------------------------
+
+/** Affective Domain traits — each rated on a 1-5 scale */
+export const AFFECTIVE_TRAITS = [
+  'Attentiveness',
+  'Honesty',
+  'Neatness',
+  'Politeness',
+  'Punctuality/Assembly',
+  'Self Control/Calmness',
+  'Obedience',
+  'Reliability',
+  'Sense Of Responsibility',
+  'Relationship With Others',
+] as const;
+
+/** Psychomotor skills — each rated on a 1-5 scale */
+export const PSYCHOMOTOR_SKILLS = [
+  'Handling Of Tools',
+  'Drawing/Painting',
+  'Handwriting',
+  'Public Speaking',
+  'Speech Fluency',
+  'Sports & Games',
+] as const;
+
+/** Legend describing what each 1-5 rating means (shown on the result sheet) */
+export const RATING_SCALE_NOTES = [
+  '5 - Maintains an Excellent degree of Observable (Obv) traits',
+  '4 - Maintains a High level of Observable (Obv) traits',
+  '3 - Acceptable level of Obv traits',
+  '2 - Shows Minimal regard for Obv traits',
+  '1 - Has No regard for Observable traits',
+];
+
+export const HOUSE_OPTIONS = [
+  'Femi Awoniyi',
+  'Tafawa Balewa',
+  'Herbert Macaulay',
+  'Obafemi Awolowo',
+] as const;
+
+export const CLUB_OPTIONS = [
+  'Scrabble',
+  'Debate',
+  'JETS',
+  'Press',
+  'Drama',
+  'Red Cross',
+] as const;
+
+/** Build a default 1-5 rating map (defaults to 3) for a list of labels */
+export const buildDefaultRatings = (
+  labels: readonly string[],
+  defaultValue: number = 3
+): Record<string, number> =>
+  labels.reduce((acc, label) => {
+    acc[label] = defaultValue;
+    return acc;
+  }, {} as Record<string, number>);

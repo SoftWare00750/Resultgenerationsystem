@@ -51,6 +51,7 @@ import { studentsService } from "@/lib/services/students";
 import { resultsService } from "@/lib/services/results";
 import { sessionsService } from "@/lib/services/sessions";
 import { classesService } from "@/lib/services/classes";
+import { downloadResultPDF } from "@/lib/services/pdf-generator";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
 import {
@@ -63,11 +64,23 @@ import {
   Trash2,
   FileText,
   X,
+  Download,
 } from "lucide-react";
-import { Student, Result, Term, ResultType, Session } from "@/lib/types";
+import {
+  Student,
+  Result,
+  Term,
+  ResultType,
+  Session,
+  AFFECTIVE_TRAITS,
+  PSYCHOMOTOR_SKILLS,
+  HOUSE_OPTIONS,
+  CLUB_OPTIONS,
+  buildDefaultRatings,
+} from "@/lib/types";
 import { getSubjectsByCategory } from "@/lib/types";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { getOrdinalSuffix } from "@/lib/utils";
+import { getOrdinalSuffix, formatDate } from "@/lib/utils";
 
 // Locally extending Subject interface to support granular fields
 interface AssessmentSubject {
@@ -100,7 +113,22 @@ export default function TeacherResultsPage() {
     resultType: "Examination" as ResultType,
     teacherComment: "",
     principalComment: "",
+    house: "",
+    club: "",
   });
+
+  const [attendance, setAttendance] = useState({
+    opened: 0,
+    present: 0,
+    absent: 0,
+  });
+
+  const [affectiveDomain, setAffectiveDomain] = useState<Record<string, number>>(
+    buildDefaultRatings(AFFECTIVE_TRAITS)
+  );
+  const [psychomotorSkills, setPsychomotorSkills] = useState<Record<string, number>>(
+    buildDefaultRatings(PSYCHOMOTOR_SKILLS)
+  );
 
   const [subjects, setSubjects] = useState<AssessmentSubject[]>([]);
 
@@ -247,6 +275,14 @@ export default function TeacherResultsPage() {
     setSubjects(updated);
   };
 
+  const handleAffectiveChange = (label: string, value: number) => {
+    setAffectiveDomain((prev) => ({ ...prev, [label]: value }));
+  };
+
+  const handlePsychomotorChange = (label: string, value: number) => {
+    setPsychomotorSkills((prev) => ({ ...prev, [label]: value }));
+  };
+
   const handleCreateResult = async () => {
     if (!selectedStudent || !user || !activeSession) {
       toast.error("Please select a student and ensure an active session exists");
@@ -275,6 +311,11 @@ export default function TeacherResultsPage() {
         principalComment: formData.principalComment,
         published: false,
         createdBy: user.$id,
+        attendance,
+        affectiveDomain,
+        psychomotorSkills,
+        house: formData.house,
+        club: formData.club,
       });
       toast.success("Result created successfully");
       setDialogOpen(false);
@@ -294,10 +335,52 @@ export default function TeacherResultsPage() {
       resultType: "Examination",
       teacherComment: "",
       principalComment: "",
+      house: "",
+      club: "",
     });
+    setAttendance({ opened: 0, present: 0, absent: 0 });
+    setAffectiveDomain(buildDefaultRatings(AFFECTIVE_TRAITS));
+    setPsychomotorSkills(buildDefaultRatings(PSYCHOMOTOR_SKILLS));
     setSubjects([]);
     setNewSubjectName("");
     setActiveTab("student");
+  };
+
+  const handlePublishToggle = async (result: Result) => {
+    try {
+      if (result.published) {
+        await resultsService.unpublishResult(result.$id);
+        toast.success("Result unpublished");
+      } else {
+        await resultsService.publishResult(result.$id);
+        toast.success("Result published — visible to parents");
+      }
+      fetchData();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update result");
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedResult) return;
+    try {
+      await resultsService.deleteResult(selectedResult.$id);
+      toast.success("Result deleted");
+      setDeleteDialogOpen(false);
+      setSelectedResult(null);
+      fetchData();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete result");
+    }
+  };
+
+  const handleDownload = async (result: Result) => {
+    try {
+      await downloadResultPDF(result);
+      toast.success("Result PDF downloaded");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to generate PDF");
+    }
   };
 
   const totalScore = subjects.reduce((s, sub) => s + (sub.score || 0), 0);
@@ -356,13 +439,16 @@ export default function TeacherResultsPage() {
                 </DialogHeader>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="student">1. Student</TabsTrigger>
                     <TabsTrigger value="scores" disabled={!selectedStudent}>
                       2. Scores & Subjects
                     </TabsTrigger>
+                    <TabsTrigger value="report" disabled={!selectedStudent}>
+                      3. Report Details
+                    </TabsTrigger>
                     <TabsTrigger value="comments" disabled={!selectedStudent}>
-                      3. Comments
+                      4. Comments
                     </TabsTrigger>
                   </TabsList>
 
@@ -419,6 +505,42 @@ export default function TeacherResultsPage() {
                             </Select>
                           </div>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>House</Label>
+                            <Select
+                              value={formData.house}
+                              onValueChange={(v) => setFormData({ ...formData, house: v })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select house" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {HOUSE_OPTIONS.map((h) => (
+                                  <SelectItem key={h} value={h}>{h}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Club / Society</Label>
+                            <Select
+                              value={formData.club}
+                              onValueChange={(v) => setFormData({ ...formData, club: v })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select club / society" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CLUB_OPTIONS.map((c) => (
+                                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
                         <div className="flex justify-end pt-4">
                           <Button onClick={() => setActiveTab("scores")}>
                             Next: Enter Scores
@@ -530,13 +652,140 @@ export default function TeacherResultsPage() {
                       <Button variant="outline" onClick={() => setActiveTab("student")}>
                         Back
                       </Button>
+                      <Button onClick={() => setActiveTab("report")}>
+                        Next: Report Details
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Tab 3: Report Details (Attendance, Affective Domain, Psychomotor Skills) */}
+                  <TabsContent value="report" className="space-y-6 pt-4">
+                    {/* Attendance */}
+                    <div className="space-y-3">
+                      <Label className="text-sm font-semibold">Attendance Summary</Label>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Times School Opened</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={attendance.opened || ""}
+                            onChange={(e) =>
+                              setAttendance((a) => ({ ...a, opened: Math.max(0, parseInt(e.target.value) || 0) }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">No of Times Present</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={attendance.present || ""}
+                            onChange={(e) =>
+                              setAttendance((a) => ({ ...a, present: Math.max(0, parseInt(e.target.value) || 0) }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">No of Times Absent</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={attendance.absent || ""}
+                            onChange={(e) =>
+                              setAttendance((a) => ({ ...a, absent: Math.max(0, parseInt(e.target.value) || 0) }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Affective Domain */}
+                    <div className="space-y-3">
+                      <Label className="text-sm font-semibold">
+                        Affective Domain <span className="text-muted-foreground font-normal">(rate each trait 1–5)</span>
+                      </Label>
+                      <div className="rounded-md border overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="min-w-[180px]">Trait</TableHead>
+                              {[5, 4, 3, 2, 1].map((n) => (
+                                <TableHead key={n} className="text-center w-[50px]">{n}</TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {AFFECTIVE_TRAITS.map((trait) => (
+                              <TableRow key={trait}>
+                                <TableCell className="font-medium">{trait}</TableCell>
+                                {[5, 4, 3, 2, 1].map((n) => (
+                                  <TableCell key={n} className="text-center">
+                                    <input
+                                      type="radio"
+                                      name={`affective-${trait}`}
+                                      checked={affectiveDomain[trait] === n}
+                                      onChange={() => handleAffectiveChange(trait, n)}
+                                    />
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+
+                    {/* Psychomotor Skills */}
+                    <div className="space-y-3">
+                      <Label className="text-sm font-semibold">
+                        Psychomotor Skills <span className="text-muted-foreground font-normal">(rate each skill 1–5)</span>
+                      </Label>
+                      <div className="rounded-md border overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="min-w-[180px]">Skill</TableHead>
+                              {[5, 4, 3, 2, 1].map((n) => (
+                                <TableHead key={n} className="text-center w-[50px]">{n}</TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {PSYCHOMOTOR_SKILLS.map((skill) => (
+                              <TableRow key={skill}>
+                                <TableCell className="font-medium">{skill}</TableCell>
+                                {[5, 4, 3, 2, 1].map((n) => (
+                                  <TableCell key={n} className="text-center">
+                                    <input
+                                      type="radio"
+                                      name={`psychomotor-${skill}`}
+                                      checked={psychomotorSkills[skill] === n}
+                                      onChange={() => handlePsychomotorChange(skill, n)}
+                                    />
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        5 = Excellent, 4 = High, 3 = Acceptable, 2 = Minimal, 1 = No regard for observable traits.
+                      </p>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button variant="outline" onClick={() => setActiveTab("scores")}>
+                        Back
+                      </Button>
                       <Button onClick={() => setActiveTab("comments")}>
                         Next: Comments
                       </Button>
                     </div>
                   </TabsContent>
 
-                  {/* Tab 3: Comments */}
+                  {/* Tab 4: Comments */}
                   <TabsContent value="comments" className="space-y-4 pt-4">
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -564,7 +813,7 @@ export default function TeacherResultsPage() {
                     </div>
 
                     <DialogFooter className="gap-2 pt-6">
-                      <Button variant="outline" onClick={() => setActiveTab("scores")} disabled={saving}>
+                      <Button variant="outline" onClick={() => setActiveTab("report")} disabled={saving}>
                         Back
                       </Button>
                       <Button onClick={handleCreateResult} disabled={saving}>
@@ -577,7 +826,119 @@ export default function TeacherResultsPage() {
             </Dialog>
           </div>
         </div>
+
+        {/* Results list */}
+        <Card>
+          <CardHeader>
+            <CardTitle>My Results</CardTitle>
+            <CardDescription>Results you've created — publish to make visible to parents</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin" />
+              </div>
+            ) : myResults.length === 0 ? (
+              <EmptyState
+                icon={FileText}
+                title="No results yet"
+                description="Create your first result using the button above"
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead>Term</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Average</TableHead>
+                      <TableHead>Grade</TableHead>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {myResults.map((r) => (
+                      <TableRow key={r.$id}>
+                        <TableCell className="font-medium">{r.studentName}</TableCell>
+                        <TableCell>{r.class}</TableCell>
+                        <TableCell>{r.term}</TableCell>
+                        <TableCell>{r.resultType}</TableCell>
+                        <TableCell>{r.averageScore?.toFixed(1)}%</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary">
+                            {r.overallGrade}
+                          </span>
+                        </TableCell>
+                        <TableCell>{r.position ? getOrdinalSuffix(r.position) : "N/A"}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            r.published ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                          }`}>
+                            {r.published ? "Published" : "Draft"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Download PDF"
+                              onClick={() => handleDownload(r)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title={r.published ? "Unpublish" : "Publish"}
+                              onClick={() => handlePublishToggle(r)}
+                            >
+                              {r.published ? <EyeOff className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Delete"
+                              onClick={() => {
+                                setSelectedResult(r);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this result?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the result for{" "}
+              <span className="font-semibold">{selectedResult?.studentName}</span>. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
