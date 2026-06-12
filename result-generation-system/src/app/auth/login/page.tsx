@@ -192,13 +192,12 @@ export default function LoginPage() {
             </div>
             <div className="space-y-1.5">
               <button
-                type="button"
-                onClick={() => fillDemo('admin')}
-                className="w-full text-left text-sm px-3 py-2 rounded-lg bg-background border hover:border-primary/50 transition-colors"
-              >
-                <span className="font-medium"> Go To Admin SignIn</span>
-                
-              </button>
+      type="button"
+      onClick={() => navigate('/auth/admin')}
+      className="w-full text-left text-sm px-3 py-2 rounded-lg bg-background border hover:border-primary/50 transition-colors"
+    >
+      <span className="font-medium"> Go To Admin SignIn</span>
+    </button>
             </div>
             <p className="text-xs text-muted-foreground">Go To Admin Section to register teachers & parents with auth codes.</p>
           </div>
