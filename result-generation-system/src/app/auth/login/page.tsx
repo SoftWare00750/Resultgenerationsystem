@@ -11,6 +11,10 @@ import Link from 'next/link';
 import { Eye, EyeOff, GraduationCap, BookOpen, Users, FileText, Shield } from 'lucide-react';
 import { seedDefaults, ensureAdminPassword } from '@/lib/storage';
 import Image from 'next/image';
+import { useNavigate } from 'react-router-dom';
+
+export default function YourComponent() {
+  const navigate = useNavigate();
 
 export default function LoginPage() {
   const router = useRouter();
@@ -205,4 +209,5 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
 }
