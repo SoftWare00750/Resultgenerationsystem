@@ -17,17 +17,22 @@ import { toast } from "sonner";
 import { Student, User, CLASS_OPTIONS } from "@/lib/types";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Edit, Trash2, RefreshCw, GraduationCap } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, GraduationCap, UserIcon } from 'lucide-react';
+
+// Extending local variant interface safely to include base64 images
+interface ExtendedStudent extends Student {
+  photo?: string;
+}
 
 export default function TeacherStudentsPage() {
   const { user } = useAuthStore();
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<ExtendedStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [parents, setParents] = useState<User[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [editingStudent, setEditingStudent] = useState<ExtendedStudent | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<ExtendedStudent | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -39,12 +44,11 @@ export default function TeacherStudentsPage() {
     guardianName: '',
     guardianPhone: '',
     address: '',
+    photo: '', // Base64 string container
   });
 
-  // Helper key for localStorage persistence
   const LOCAL_STORAGE_KEY = "system_students_backup";
 
-  // Helper to dispatch global changes across tabs/views
   const notifyStorageUpdate = () => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("storage"));
@@ -56,7 +60,6 @@ export default function TeacherStudentsPage() {
     if (!user) return;
     setLoading(true);
     try {
-      // 1. Try gathering data from your real services
       const classes = await classesService.getClassesByTeacher(user.$id);
       const [, usersData] = await Promise.all([
         studentsService.getAllStudents().catch(() => []),
@@ -65,7 +68,7 @@ export default function TeacherStudentsPage() {
       
       setParents(usersData.filter(u => u.role === 'parent'));
 
-      let allRemoteStudents: Student[] = [];
+      let allRemoteStudents: ExtendedStudent[] = [];
       try {
         for (const c of classes) {
           const s = await studentsService.getStudentsByClass(c.name);
@@ -75,11 +78,9 @@ export default function TeacherStudentsPage() {
         console.warn("Remote student service failed, fallback to local storage storage.");
       }
 
-      // 2. LocalStorage Fallback Synergy
       const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
-      const savedLocalStudents: Student[] = localData ? JSON.parse(localData) : [];
+      const savedLocalStudents: ExtendedStudent[] = localData ? JSON.parse(localData) : [];
 
-      // Combine arrays cleanly and eliminate any true duplicate IDs
       const combined = [...allRemoteStudents, ...savedLocalStudents];
       const uniqueStudents = combined.filter(
         (student, index, self) => self.findIndex(s => s.$id === student.$id) === index
@@ -87,7 +88,6 @@ export default function TeacherStudentsPage() {
 
       setStudents(uniqueStudents);
     } catch (error) {
-      // Complete backup catch if services throw blocker exceptions
       const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (localData) {
         setStudents(JSON.parse(localData));
@@ -103,11 +103,30 @@ export default function TeacherStudentsPage() {
     fetchData();
   }, [user]);
 
+  // Image to Base64 Processing with size limits
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 5MB Validation Limit
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("Image file size must not exceed 5MB");
+      e.target.value = ""; // Clear file input element target
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData((prev) => ({ ...prev, photo: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      // Validate unique admission number locally first
       const uniqueCheck = students.some(
         s => s.admissionNumber === formData.admissionNumber && (!editingStudent || s.$id !== editingStudent.$id)
       );
@@ -119,10 +138,8 @@ export default function TeacherStudentsPage() {
       let updatedStudentsList = [...students];
 
       if (editingStudent) {
-        // --- UPDATE MODE ---
-        const updatedTarget: Student = { ...editingStudent, ...formData };
+        const updatedTarget: ExtendedStudent = { ...editingStudent, ...formData };
         
-        // Attempt backend sync
         try {
           await studentsService.updateStudent(editingStudent.$id, formData);
         } catch(e) { console.warn("Backend update error, saving locally."); }
@@ -130,16 +147,14 @@ export default function TeacherStudentsPage() {
         updatedStudentsList = updatedStudentsList.map(s => s.$id === editingStudent.$id ? updatedTarget : s);
         toast.success('Student updated successfully');
       } else {
-        // --- CREATE MODE ---
         const newStudentId = "local_" + Date.now().toString();
         
-        const newStudentItem: Student = {
+        const newStudentItem: ExtendedStudent = {
           $id: newStudentId,
           createdAt: new Date().toISOString(),
           ...formData
         };
 
-        // Attempt backend sync
         try {
           await studentsService.createStudent(formData);
         } catch(e) { console.warn("Backend creation error, routing straight to localStorage."); }
@@ -148,11 +163,8 @@ export default function TeacherStudentsPage() {
         toast.success('Student created successfully');
       }
 
-      // Commit changes immediately to localStorage
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedStudentsList));
       setStudents(updatedStudentsList);
-      
-      // Fire notification event so result management windows pick up fallback records
       notifyStorageUpdate();
 
       setDialogOpen(false);
@@ -166,17 +178,13 @@ export default function TeacherStudentsPage() {
     if (!selectedStudent) return;
 
     try {
-      // Attempt backend delete sync
       try {
         await studentsService.deleteStudent(selectedStudent.$id);
       } catch (e) { console.warn("Backend sync deletion bypassed."); }
 
-      // Filter local array states
       const updatedList = students.filter(s => s.$id !== selectedStudent.$id);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedList));
       setStudents(updatedList);
-      
-      // Update other views
       notifyStorageUpdate();
 
       toast.success('Student record removed successfully');
@@ -186,7 +194,7 @@ export default function TeacherStudentsPage() {
     }
   };
 
-  const handleEdit = (student: Student) => {
+  const handleEdit = (student: ExtendedStudent) => {
     setEditingStudent(student);
     setFormData({
       name: student.name,
@@ -198,11 +206,12 @@ export default function TeacherStudentsPage() {
       guardianName: student.guardianName || '',
       guardianPhone: student.guardianPhone || '',
       address: student.address || '',
+      photo: student.photo || '',
     });
     setDialogOpen(true);
   };
 
-  const handleDeleteClick = (student: Student) => {
+  const handleDeleteClick = (student: ExtendedStudent) => {
     setSelectedStudent(student);
     setDeleteDialogOpen(true);
   };
@@ -218,6 +227,7 @@ export default function TeacherStudentsPage() {
       guardianName: '',
       guardianPhone: '',
       address: '',
+      photo: '',
     });
     setEditingStudent(null);
   };
@@ -255,6 +265,32 @@ export default function TeacherStudentsPage() {
                 </DialogHeader>
                 <form onSubmit={handleSubmit}>
                   <div className="grid gap-4 py-4">
+                    {/* Photo Upload Zone */}
+                    <div className="flex flex-col items-center justify-center gap-3 bg-muted/30 p-4 rounded-lg border border-dashed">
+                      <Label className="text-sm font-semibold">Student Photograph</Label>
+                      <div className="relative h-24 w-24 rounded-full border bg-background overflow-hidden flex items-center justify-center shadow-inner">
+                        {formData.photo ? (
+                          <img 
+                            src={formData.photo} 
+                            alt="Student preview" 
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <UserIcon className="h-12 w-12 text-muted-foreground/60" />
+                        )}
+                      </div>
+                      <div className="text-center space-y-1">
+                        <Input 
+                          id="photo"
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="max-w-xs h-9 text-xs file:text-xs"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Max upload dimension parameters: 5MB</p>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="name">Full Name *</Label>
@@ -415,6 +451,7 @@ export default function TeacherStudentsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[80px]">Photo</TableHead>
                       <TableHead>Admission No.</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Class</TableHead>
@@ -426,6 +463,19 @@ export default function TeacherStudentsPage() {
                   <TableBody>
                     {students.map((s) => (
                       <TableRow key={s.$id}>
+                        <TableCell>
+                          <div className="h-10 w-10 rounded-full border bg-muted overflow-hidden flex items-center justify-center">
+                            {s.photo ? (
+                              <img 
+                                src={s.photo} 
+                                alt={s.name} 
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <UserIcon className="h-5 w-5 text-muted-foreground/70" />
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="font-medium">{s.admissionNumber}</TableCell>
                         <TableCell>{s.name}</TableCell>
                         <TableCell>{s.class}</TableCell>
