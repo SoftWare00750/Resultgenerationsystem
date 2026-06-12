@@ -21,15 +21,14 @@ export const authService = {
     const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (existing) throw new Error('An account with this email already exists');
 
-    if (role !== 'admin') {
-      const codes = getStore<any>(KEYS.authCodes);
-      const code = codes.find((c: any) => c.code === authCode && c.role === role && !c.isUsed);
-      if (!code) throw new Error('Invalid or already used authorization code');
-      if (new Date(code.expiresAt) < new Date()) throw new Error('Authorization code has expired');
-      // Mark code as used
-      const updated = codes.map((c: any) => c.code === authCode ? { ...c, isUsed: true, usedBy: email } : c);
-      setStore(KEYS.authCodes, updated);
-    }
+    // All roles (including admin) require a valid auth code
+    const codes = getStore<any>(KEYS.authCodes);
+    const code = codes.find((c: any) => c.code === authCode && c.role === role && !c.isUsed);
+    if (!code) throw new Error('Invalid or already used authorization code for this role');
+    if (new Date(code.expiresAt) < new Date()) throw new Error('Authorization code has expired');
+    // Mark code as used
+    const updated = codes.map((c: any) => c.code === authCode ? { ...c, isUsed: true, usedBy: email } : c);
+    setStore(KEYS.authCodes, updated);
 
     const newUser: User = {
       $id: ID.unique(),

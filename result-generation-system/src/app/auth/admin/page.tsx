@@ -1,209 +1,468 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { authService } from '@/lib/services/auth';
-import { useAuthStore } from '@/lib/store/auth-store';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
-import Link from 'next/link';
-import { Eye, EyeOff, GraduationCap, BookOpen, Users, FileText, Shield } from 'lucide-react';
-import { seedDefaults, ensureAdminPassword } from '@/lib/storage';
-import Image from 'next/image';
 
-export default function LoginPage() {
-  const router = useRouter();
-  const { setUser } = useAuthStore();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+import { useEffect, useState } from "react";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { authService } from "@/lib/services/auth";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { toast } from "sonner";
+import { Plus, Copy, RefreshCw, Trash2, Key, CheckCircle2, XCircle, Clock, Shield } from "lucide-react";
+import { UserRole } from "@/lib/types";
+import { formatDate } from "@/lib/utils";
 
-  useEffect(() => {
-    seedDefaults();
-    ensureAdminPassword();
-  }, []);
+interface AuthCode {
+  $id: string;
+  code: string;
+  role: string;
+  isUsed: boolean;
+  expiresAt: string;
+  createdAt: string;
+  usedBy?: string;
+  createdBy: string;
+}
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+type FilterStatus = "all" | "active" | "used" | "expired";
+
+export default function AuthCodesPage() {
+  const { user } = useAuthStore();
+  const [codes, setCodes] = useState<AuthCode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole>("teacher");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [filterRole, setFilterRole] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [deleteCode, setDeleteCode] = useState<AuthCode | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const fetchCodes = async () => {
     try {
-      const user = await authService.login(email, password);
-      setUser(user);
-      toast.success(`Welcome back, ${user.name}!`);
-      router.push(`/${user.role}/dashboard`);
-    } catch (error: any) {
-      toast.error(error.message || 'Login failed');
+      const authCodes = await authService.getAuthCodes();
+      setCodes(authCodes as AuthCode[]);
+    } catch {
+      toast.error("Failed to fetch auth codes");
     } finally {
       setLoading(false);
     }
   };
 
-  const fillDemo = (role: 'admin' | 'teacher' | 'parent') => {
-    if (role === 'admin') { setEmail('admin@school.edu.ng'); setPassword('Admin@123'); }
+  useEffect(() => {
+    fetchCodes();
+  }, []);
+
+  const handleGenerateCode = async () => {
+    if (!user) return;
+    setGenerating(true);
+    try {
+      await authService.generateAuthCode(selectedRole, user.$id);
+      toast.success(`New ${selectedRole} auth code generated`);
+      setDialogOpen(false);
+      fetchCodes();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to generate code");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const copyToClipboard = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast.success("Code copied to clipboard");
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteCode) return;
+    try {
+      const { getStore, setStore, KEYS } = await import("@/lib/storage");
+      const codes = getStore<any>(KEYS.authCodes);
+      setStore(KEYS.authCodes, codes.filter((c: any) => c.$id !== deleteCode.$id));
+      toast.success("Auth code deleted");
+      setDeleteDialogOpen(false);
+      setDeleteCode(null);
+      fetchCodes();
+    } catch {
+      toast.error("Failed to delete code");
+    }
+  };
+
+  const getCodeStatus = (code: AuthCode): "active" | "used" | "expired" => {
+    if (code.isUsed) return "used";
+    if (new Date(code.expiresAt) < new Date()) return "expired";
+    return "active";
+  };
+
+  const filteredCodes = codes.filter((code) => {
+    const statusMatch =
+      filterStatus === "all" || getCodeStatus(code) === filterStatus;
+    const roleMatch = filterRole === "all" || code.role === filterRole;
+    return statusMatch && roleMatch;
+  });
+
+  const statusCounts = {
+    active: codes.filter((c) => getCodeStatus(c) === "active").length,
+    used: codes.filter((c) => getCodeStatus(c) === "used").length,
+    expired: codes.filter((c) => getCodeStatus(c) === "expired").length,
+  };
+
+  const statusBadge = (code: AuthCode) => {
+    const status = getCodeStatus(code);
+    const config = {
+      active: {
+        cls: "bg-green-100 text-green-700",
+        icon: <CheckCircle2 className="h-3 w-3" />,
+        label: "Active",
+      },
+      used: {
+        cls: "bg-slate-100 text-slate-600",
+        icon: <XCircle className="h-3 w-3" />,
+        label: "Used",
+      },
+      expired: {
+        cls: "bg-amber-100 text-amber-700",
+        icon: <Clock className="h-3 w-3" />,
+        label: "Expired",
+      },
+    };
+    const c = config[status];
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${c.cls}`}
+      >
+        {c.icon}
+        {c.label}
+      </span>
+    );
+  };
+
+  const roleBadge = (role: string) => {
+    const colors: Record<string, string> = {
+      admin: "bg-slate-100 text-slate-700",
+      teacher: "bg-blue-100 text-blue-700",
+      parent: "bg-violet-100 text-violet-700",
+    };
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${colors[role] || "bg-muted text-muted-foreground"}`}
+      >
+        {role === "admin" && <Shield className="h-3 w-3" />}
+        {role}
+      </span>
+    );
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Left branding panel */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col overflow-hidden">
-        {/* Background image */}
-        <div className="absolute inset-0">
-          <Image
-            src="/images/Result Generation System.jpg"
-            alt="School"
-            fill
-            className="object-cover"
-            priority
-            onError={() => {}}
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-slate-900/75 to-slate-900/60" />
-        </div>
-
-        <div className="relative z-10 flex flex-col justify-between h-full p-12">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            {/* FIX: use a sized wrapper with position:relative for fill Image */}
-            <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-white/20">
-              <Image
-                src="/images/Result%20Generation%20System.jpg"
-                alt="Result Generation System Logo"
-                fill
-                className="object-cover"
-                priority
-              />
-            </div>
-            <span className="text-white font-semibold text-lg tracking-tight">Result Generation System</span>
+    <DashboardLayout role="admin">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <Key className="h-6 w-6" />
+              Authorization Codes
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Generate and manage one-time registration codes for admins, teachers, and parents
+            </p>
           </div>
-
-          {/* Hero */}
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <div className="inline-block text-xs font-semibold tracking-widest uppercase text-white/50 border border-white/20 rounded-full px-3 py-1">
-                Nigerian Schools Platform
-              </div>
-              <h1 className="text-5xl font-bold text-white leading-[1.1]">
-                Modern Result<br />Management
-              </h1>
-              <p className="text-white/70 text-lg max-w-sm leading-relaxed">
-                Streamline academic result generation from Nursery through Primary school with ease.
-              </p>
-            </div>
-
-            {/* Feature grid */}
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: Users, label: 'Multi-Role Access' },
-                { icon: FileText, label: 'PDF Generation' },
-                { icon: BookOpen, label: 'Auto Grading' },
-                { icon: GraduationCap, label: 'All Class Levels' },
-              ].map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-2.5 bg-white/8 backdrop-blur-sm border border-white/15 rounded-xl px-3.5 py-2.5">
-                  <Icon className="h-4 w-4 text-white/60 shrink-0" />
-                  <span className="text-white/80 text-sm font-medium">{label}</span>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Generate Code
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Generate Authorization Code</DialogTitle>
+                <DialogDescription>
+                  Create a new 6-digit code. Share it with the new user so they
+                  can register. Codes expire after 7 days.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">User Role</label>
+                  <Select
+                    value={selectedRole}
+                    onValueChange={(v) => setSelectedRole(v as UserRole)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">
+                        <span className="flex items-center gap-2">
+                          <Shield className="h-3.5 w-3.5 text-slate-600" />
+                          Admin
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="teacher">Teacher</SelectItem>
+                      <SelectItem value="parent">Parent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    This determines which role the registrant will receive.
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Bottom credit */}
-          <p className="text-white/30 text-xs">© 2024 Result Generation System</p>
+                {selectedRole === "admin" && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600 flex items-start gap-2">
+                    <Shield className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      Admin codes grant full system access. Only share with
+                      trusted personnel.
+                    </span>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleGenerateCode} disabled={generating}>
+                  {generating ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Generating…
+                    </>
+                  ) : (
+                    "Generate Code"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
-      </div>
 
-      {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
-        <div className="w-full max-w-md space-y-8">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3">
-            {/* FIX: use a sized wrapper with position:relative for fill Image */}
-            <div className="relative w-10 h-10 rounded-xl overflow-hidden">
-              <Image
-                src="/images/Result Generation System.jpg"
-                alt="Result Generation System Logo"
-                fill
-                className="object-cover"
-                priority
-              />
-            </div>
-            <span className="font-semibold text-lg">Result Generation System</span>
-          </div>
+        {/* Summary Cards */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[
+            {
+              label: "Active Codes",
+              value: statusCounts.active,
+              color: "text-green-600",
+              bg: "bg-green-50",
+              icon: CheckCircle2,
+            },
+            {
+              label: "Used Codes",
+              value: statusCounts.used,
+              color: "text-slate-600",
+              bg: "bg-slate-50",
+              icon: XCircle,
+            },
+            {
+              label: "Expired Codes",
+              value: statusCounts.expired,
+              color: "text-amber-600",
+              bg: "bg-amber-50",
+              icon: Clock,
+            },
+          ].map((s) => (
+            <Card key={s.label}>
+              <CardContent className="flex items-center gap-4 p-5">
+                <div className={`p-2.5 rounded-lg ${s.bg}`}>
+                  <s.icon className={`h-5 w-5 ${s.color}`} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{s.value}</p>
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-          <div className="space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight">Sign in</h2>
-            <p className="text-muted-foreground">Access your portal to manage results</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email" type="email" placeholder="you@school.edu.ng"
-                value={email} onChange={e => setEmail(e.target.value)}
-                required autoComplete="email" className="h-11"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password" type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  value={password} onChange={e => setPassword(e.target.value)}
-                  required autoComplete="current-password" className="h-11 pr-11"
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+        {/* Codes Table */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>All Codes</CardTitle>
+                <CardDescription>
+                  {filteredCodes.length} code
+                  {filteredCodes.length !== 1 ? "s" : ""} shown
+                </CardDescription>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Select value={filterRole} onValueChange={setFilterRole}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="All roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="teacher">Teacher</SelectItem>
+                    <SelectItem value="parent">Parent</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={filterStatus}
+                  onValueChange={(v) => setFilterStatus(v as FilterStatus)}
+                >
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="All status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="used">Used</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-
-            <Button type="submit" className="w-full h-11" disabled={loading}>
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
-                  Signing in…
-                </span>
-              ) : 'Sign in'}
-            </Button>
-          </form>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">New user?</span>
-            </div>
-          </div>
-
-          <p className="text-center text-sm text-muted-foreground">
-            Have an authorization code?{' '}
-            <Link href="/auth/register" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
-              Create an account
-            </Link>
-          </p>
-
-          {/* Demo credentials */}
-          <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <Shield className="h-3.5 w-3.5" />
-              Admin Section
-            </div>
-            <div className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() => fillDemo('admin')}
-                className="w-full text-left text-sm px-3 py-2 rounded-lg bg-background border hover:border-primary/50 transition-colors"
-              >
-                <span className="font-medium"> Go To Admin SignIn</span>
-                
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">Go To Admin Section to register teachers & parents with auth codes.</p>
-          </div>
-        </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredCodes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <Key className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="font-medium">No codes found</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {filterRole !== "all" || filterStatus !== "all"
+                    ? "Try adjusting your filters"
+                    : "Generate your first code to get started"}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Used By</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCodes.map((code) => (
+                      <TableRow key={code.$id}>
+                        <TableCell>
+                          <span className="font-mono font-bold text-base tracking-widest">
+                            {code.code}
+                          </span>
+                        </TableCell>
+                        <TableCell>{roleBadge(code.role)}</TableCell>
+                        <TableCell>{statusBadge(code)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(code.expiresAt, "PP")}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(code.createdAt, "PP")}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {code.usedBy || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(code.code)}
+                              disabled={code.isUsed}
+                              title="Copy code"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setDeleteCode(code);
+                                setDeleteDialogOpen(true);
+                              }}
+                              title="Delete code"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this code?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Code{" "}
+              <span className="font-mono font-bold">{deleteCode?.code}</span>{" "}
+              will be permanently removed. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </DashboardLayout>
   );
 }

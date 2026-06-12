@@ -47,7 +47,7 @@ import {
 import { authService } from "@/lib/services/auth";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
-import { Plus, Copy, RefreshCw, Trash2, Key, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Plus, Copy, RefreshCw, Trash2, Key, CheckCircle2, XCircle, Clock, Shield } from "lucide-react";
 import { UserRole } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
@@ -175,6 +175,22 @@ export default function AuthCodesPage() {
     );
   };
 
+  const roleBadge = (role: string) => {
+    const colors: Record<string, string> = {
+      admin: "bg-slate-100 text-slate-700",
+      teacher: "bg-blue-100 text-blue-700",
+      parent: "bg-violet-100 text-violet-700",
+    };
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${colors[role] || "bg-muted text-muted-foreground"}`}
+      >
+        {role === "admin" && <Shield className="h-3 w-3" />}
+        {role}
+      </span>
+    );
+  };
+
   return (
     <DashboardLayout role="admin">
       <div className="space-y-6">
@@ -186,8 +202,7 @@ export default function AuthCodesPage() {
               Authorization Codes
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Generate and manage one-time registration codes for teachers and
-              parents
+              Generate and manage one-time registration codes for admins, teachers, and parents
             </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -216,6 +231,12 @@ export default function AuthCodesPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="admin">
+                        <span className="flex items-center gap-2">
+                          <Shield className="h-3.5 w-3.5 text-slate-600" />
+                          Admin
+                        </span>
+                      </SelectItem>
                       <SelectItem value="teacher">Teacher</SelectItem>
                       <SelectItem value="parent">Parent</SelectItem>
                     </SelectContent>
@@ -224,6 +245,16 @@ export default function AuthCodesPage() {
                     This determines which role the registrant will receive.
                   </p>
                 </div>
+
+                {selectedRole === "admin" && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600 flex items-start gap-2">
+                    <Shield className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      Admin codes grant full system access. Only share with
+                      trusted personnel.
+                    </span>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button
@@ -304,6 +335,7 @@ export default function AuthCodesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="teacher">Teacher</SelectItem>
                     <SelectItem value="parent">Parent</SelectItem>
                   </SelectContent>
@@ -364,17 +396,7 @@ export default function AuthCodesPage() {
                             {code.code}
                           </span>
                         </TableCell>
-                        <TableCell>
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                              code.role === "teacher"
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-violet-100 text-violet-700"
-                            }`}
-                          >
-                            {code.role}
-                          </span>
-                        </TableCell>
+                        <TableCell>{roleBadge(code.role)}</TableCell>
                         <TableCell>{statusBadge(code)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {formatDate(code.expiresAt, "PP")}
