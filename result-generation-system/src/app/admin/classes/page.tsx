@@ -11,14 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -27,13 +19,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectIitem,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,54 +48,100 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Label } from "@/components/ui/label";
-import { classesService } from "@/lib/services/classes";
-import { authService } from "@/lib/services/auth";
 import { studentsService } from "@/lib/services/students";
+import { resultsService } from "@/lib/services/results";
+import { sessionsService } from "@/lib/services/sessions";
+import { classesService } from "@/lib/services/classes";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, RefreshCw, BookOpen, Users } from "lucide-react";
-import { Class, ClassCategory, User, CLASS_OPTIONS } from "@/lib/types";
+import {
+  Plus,
+  Save,
+  RefreshCw,
+  Eye,
+  Globe,
+  EyeOff,
+  Trash2,
+  FileText,
+  X,
+} from "lucide-react";
+import { Student, Result, Subject, Term, ResultType, Session } from "@/lib/types";
+import { getSubjectsByCategory } from "@/lib/types";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { getOrdinalSuffix } from "@/lib/utils";
 
-export default function ClassesPage() {
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [teachers, setTeachers] = useState<User[]>([]);
-  const [studentCounts, setStudentCounts] = useState<Record<string, number>>(
-    {}
-  );
+export default function TeacherResultsPage() {
+  const { user } = useAuthStore();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [myResults, setMyResults] = useState<Result[]>([]);
+  const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<Class | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [selectedResult, setSelectedResult] = useState<Result | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [activeTab, setActiveTab] = useState("student");
+  const [newSubjectName, setNewSubjectName] = useState("");
 
   const [formData, setFormData] = useState({
-    name: "",
-    category: "Primary" as ClassCategory,
-    assignedTeacherId: "",
+    term: "First" as Term,
+    resultType: "Examination" as ResultType,
+    teacherComment: "",
+    principalComment: "",
   });
 
-  const fetchData = async () => {
-    try {
-      const [classesData, usersData] = await Promise.all([
-        classesService.getAllClasses(),
-        authService.getAllUsers(),
-      ]);
-      setClasses(classesData);
-      setTeachers(usersData.filter((u: any) => u.role === "teacher") as User[]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
 
-      // Fetch student counts for each class
-      const counts: Record<string, number> = {};
-      await Promise.all(
-        classesData.map(async (cls) => {
-          const students = await studentsService.getStudentsByClass(cls.name);
-          counts[cls.$id] = students.length;
-        })
+  const LOCAL_STORAGE_KEY = "system_students_backup";
+  const LOCAL_CLASSES_KEY = "system_classes_subjects_backup";
+
+  const fetchData = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const [classes, session] = await Promise.all([
+        classesService.getClassesByTeacher(user.$id).catch(() => []),
+        sessionsService.getActiveSession().catch(() => null),
+      ]);
+
+      setActiveSession(session);
+
+      let allRemoteStudents: Student[] = [];
+      try {
+        for (const classItem of classes) {
+          const classStudents = await studentsService.getStudentsByClass(
+            classItem.name
+          );
+          allRemoteStudents.push(...classStudents);
+        }
+      } catch (e) {
+        console.warn("Remote student service failed inside results portal, pulling local fallback dataset.");
+      }
+
+      const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const savedLocalStudents: Student[] = localData ? JSON.parse(localData) : [];
+
+      const combined = [...allRemoteStudents, ...savedLocalStudents];
+      const uniqueStudents = combined.filter(
+        (student, index, self) => self.findIndex(s => s.$id === student.$id) === index
       );
-      setStudentCounts(counts);
+
+      setStudents(uniqueStudents);
+
+      const allResults = await resultsService.getAllResults().catch(() => []);
+      const teacherResults = allResults.filter(
+        (r: any) => r.createdBy === user.$id
+      );
+      setMyResults(teacherResults);
     } catch {
-      toast.error("Failed to fetch data");
+      const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (localData) {
+        setStudents(JSON.parse(localData));
+      } else {
+        toast.error("Failed to fetch data");
+      }
     } finally {
       setLoading(false);
     }
@@ -99,402 +149,373 @@ export default function ClassesPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
 
-  // Auto-set category when name is selected
-  const handleNameChange = (name: string) => {
-    let category: ClassCategory = "Primary";
-    if (name.includes("Nursery")) category = "Nursery";
-    else if (name.includes("Kindergarten")) category = "Kindergarten";
-    setFormData((f) => ({ ...f, name, category }));
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", fetchData);
+      window.addEventListener("localStudentsUpdated", fetchData);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("storage", fetchData);
+        window.removeEventListener("localStudentsUpdated", fetchData);
+      }
+    };
+  }, [user]);
+
+  const handleStudentSelect = (studentId: string) => {
+    const student = students.find((s) => s.$id === studentId);
+    if (!student) return;
+    setSelectedStudent(student);
+
+    // 1. Check if Admin defined specialized subjects for this specific class inside local storage
+    const storedClasses = localStorage.getItem(LOCAL_CLASSES_KEY);
+    let classSpecificSubjects: string[] = [];
+    if (storedClasses) {
+      const parsedClasses = JSON.parse(storedClasses);
+      const exactClass = parsedClasses.find((c: any) => c.name === student.class);
+      if (exactClass && exactClass.subjects) {
+        classSpecificSubjects = exactClass.subjects;
+      }
+    }
+
+    // 2. Fallback to generic structural layout if no admin layout specified
+    const fallbackSubjects = getSubjectsByCategory(student.class);
+    const finalSubjectNames = classSpecificSubjects.length > 0 ? classSpecificSubjects : fallbackSubjects;
+
+    setSubjects(
+      finalSubjectNames.map((name) => ({ name, score: 0, grade: "", remark: "" }))
+    );
+    setActiveTab("student");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name) {
-      toast.error("Please select a class name");
+  const handleScoreChange = (index: number, score: string) => {
+    const numScore = Math.min(100, Math.max(0, parseFloat(score) || 0));
+    const updated = [...subjects];
+    updated[index].score = numScore;
+    const gradeInfo = resultsService.calculateGrade(numScore);
+    updated[index].grade = gradeInfo.grade;
+    updated[index].remark = gradeInfo.remark;
+    setSubjects(updated);
+  };
+
+  const handleAddCustomSubject = () => {
+    if (!newSubjectName.trim()) {
+      toast.error("Subject name cannot be blank");
+      return;
+    }
+    if (subjects.some(s => s.name.toLowerCase() === newSubjectName.trim().toLowerCase())) {
+      toast.error("This subject is already present on this report form");
+      return;
+    }
+    const updated = [...subjects, { name: newSubjectName.trim(), score: 0, grade: "", remark: "" }];
+    setSubjects(updated);
+    setNewSubjectName("");
+    toast.success("Subject added to this student's draft view");
+  };
+
+  const handleRemoveSubject = (index: number) => {
+    const updated = subjects.filter((_, i) => i !== index);
+    setSubjects(updated);
+  };
+
+  const handleCreateResult = async () => {
+    if (!selectedStudent || !user || !activeSession) {
+      toast.error("Please select a student and ensure an active session exists");
+      return;
+    }
+    if (subjects.length === 0) {
+      toast.error("Please assign at least one subject to generate scores");
+      return;
+    }
+    if (subjects.some((s) => s.score < 0 || s.score > 100)) {
+      toast.error("All scores must be between 0 and 100");
       return;
     }
     setSaving(true);
     try {
-      if (editingClass) {
-        await classesService.updateClass(editingClass.$id, formData);
-        toast.success("Class updated");
-      } else {
-        await classesService.createClass({ ...formData, students: [] });
-        toast.success("Class created");
-      }
+      await resultsService.createResult({
+        studentId: selectedStudent.$id,
+        studentName: selectedStudent.name,
+        admissionNumber: selectedStudent.admissionNumber,
+        class: selectedStudent.class,
+        term: formData.term,
+        session: activeSession.year,
+        resultType: formData.resultType,
+        subjects,
+        teacherComment: formData.teacherComment,
+        principalComment: formData.principalComment,
+        published: false,
+        createdBy: user.$id,
+      });
+      toast.success("Result created successfully");
       setDialogOpen(false);
       resetForm();
       fetchData();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to save class");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to create result");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleEdit = (cls: Class) => {
-    setEditingClass(cls);
-    setFormData({
-      name: cls.name,
-      category: cls.category,
-      assignedTeacherId: cls.assignedTeacherId || "",
-    });
-    setDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!selectedClass) return;
-    try {
-      await classesService.deleteClass(selectedClass.$id);
-      toast.success("Class deleted");
-      setDeleteDialogOpen(false);
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete class");
-    }
-  };
-
   const resetForm = () => {
-    setFormData({ name: "", category: "Primary", assignedTeacherId: "" });
-    setEditingClass(null);
+    setSelectedStudent(null);
+    setFormData({
+      term: "First",
+      resultType: "Examination",
+      teacherComment: "",
+      principalComment: "",
+    });
+    setSubjects([]);
+    setNewSubjectName("");
+    setActiveTab("student");
   };
 
-  const getTeacherName = (teacherId?: string) => {
-    if (!teacherId) return "—";
-    const t = teachers.find((t) => t.$id === teacherId);
-    return t?.name || "Unknown";
-  };
+  const totalScore = subjects.reduce((s, sub) => s + (sub.score || 0), 0);
+  const avgScore = subjects.length > 0 ? (totalScore / subjects.length).toFixed(1) : "0.0";
 
-  const filteredClasses =
-    filterCategory === "all"
-      ? classes
-      : classes.filter((c) => c.category === filterCategory);
-
-  const categoryCounts = {
-    Nursery: classes.filter((c) => c.category === "Nursery").length,
-    Kindergarten: classes.filter((c) => c.category === "Kindergarten").length,
-    Primary: classes.filter((c) => c.category === "Primary").length,
-  };
-
-  const categoryColor: Record<string, string> = {
-    Nursery: "bg-pink-100 text-pink-700",
-    Kindergarten: "bg-purple-100 text-purple-700",
-    Primary: "bg-blue-100 text-blue-700",
-  };
-
-  return (
-    <DashboardLayout role="admin">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <BookOpen className="h-6 w-6" />
-              Manage Classes
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Create classes and assign teachers to them
-            </p>
-          </div>
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={(open) => {
-              setDialogOpen(open);
-              if (!open) resetForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Class
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingClass ? "Edit Class" : "Add New Class"}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingClass
-                    ? "Update the class details below"
-                    : "Configure a new class and optionally assign a teacher"}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit}>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Class Name *</Label>
-                    <Select
-                      value={formData.name}
-                      onValueChange={handleNameChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a class" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CLASS_OPTIONS.map((opt) => (
-                          <SelectItem key={opt} value={opt}>
-                            {opt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Category</Label>
-                    <Select
-                      value={formData.category}
-                      onValueChange={(v) =>
-                        setFormData((f) => ({
-                          ...f,
-                          category: v as ClassCategory,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Nursery">Nursery</SelectItem>
-                        <SelectItem value="Kindergarten">Kindergarten</SelectItem>
-                        <SelectItem value="Primary">Primary</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Assigned Teacher</Label>
-                    <Select
-                      value={formData.assignedTeacherId || "none"}
-                      onValueChange={(v) =>
-                        setFormData((f) => ({
-                          ...f,
-                          assignedTeacherId: v === "none" ? "" : v,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Unassigned" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Unassigned —</SelectItem>
-                        {teachers.map((t) => (
-                          <SelectItem key={t.$id} value={t.$id}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {teachers.length === 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        No teachers registered yet. Generate an auth code for a
-                        teacher first.
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setDialogOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={saving}>
-                    {saving ? (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Saving…
-                      </>
-                    ) : editingClass ? (
-                      "Update Class"
-                    ) : (
-                      "Create Class"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Category summary */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          {(["Nursery", "Kindergarten", "Primary"] as const).map((cat) => (
-            <Card
-              key={cat}
-              className={`cursor-pointer transition-all border-2 ${
-                filterCategory === cat
-                  ? "border-primary"
-                  : "border-transparent hover:border-muted"
-              }`}
-              onClick={() =>
-                setFilterCategory(filterCategory === cat ? "all" : cat)
-              }
-            >
-              <CardContent className="flex items-center gap-4 p-5">
-                <div
-                  className={`px-2.5 py-1.5 rounded-lg text-sm font-semibold ${categoryColor[cat]}`}
-                >
-                  {cat[0]}
-                </div>
-                <div>
-                  <p className="font-semibold">{categoryCounts[cat]}</p>
-                  <p className="text-xs text-muted-foreground">{cat} classes</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Table */}
+  if (!loading && !activeSession) {
+    return (
+      <DashboardLayout role="teacher">
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>
-                  {filterCategory === "all" ? "All Classes" : `${filterCategory} Classes`}
-                </CardTitle>
-                <CardDescription>
-                  {filteredClasses.length} class
-                  {filteredClasses.length !== 1 ? "es" : ""}
-                  {filterCategory !== "all" && (
-                    <button
-                      className="ml-2 text-xs underline text-primary"
-                      onClick={() => setFilterCategory("all")}
-                    >
-                      Clear filter
-                    </button>
-                  )}
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredClasses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
-                  <BookOpen className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="font-medium">No classes found</p>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">
-                  {filterCategory !== "all"
-                    ? `No ${filterCategory} classes exist yet`
-                    : "Create your first class to get started"}
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => setDialogOpen(true)}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Class
-                </Button>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Class Name</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Assigned Teacher</TableHead>
-                      <TableHead>Students</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredClasses.map((cls) => (
-                      <TableRow key={cls.$id}>
-                        <TableCell className="font-semibold">
-                          {cls.name}
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                              categoryColor[cls.category] ||
-                              "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {cls.category}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {cls.assignedTeacherId ? (
-                            <span className="flex items-center gap-1 text-sm">
-                              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                              {getTeacherName(cls.assignedTeacherId)}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-muted-foreground italic">
-                              Unassigned
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {studentCounts[cls.$id] ?? 0}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(cls)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedClass(cls);
-                                setDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+          <CardContent className="py-12">
+            <EmptyState
+              icon={FileText}
+              title="No Active Session"
+              description="Contact the administrator to activate an academic session before creating results"
+            />
           </CardContent>
         </Card>
-      </div>
+      </DashboardLayout>
+    );
+  }
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedClass?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove this class. Students assigned to this
-              class will not be deleted, but will no longer have a class
-              association. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-destructive hover:bg-destructive/90"
+  return (
+    <DashboardLayout role="teacher">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Results</h1>
+            <p className="text-muted-foreground">
+              {activeSession ? `Session: ${activeSession.year}` : "Loading session…"}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={fetchData} variant="outline" size="sm" disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Dialog
+              open={dialogOpen}
+              onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (!open) resetForm();
+              }}
             >
-              Delete Class
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <DialogTrigger asChild>
+                <Button disabled={!activeSession}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Result
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Create New Result</DialogTitle>
+                  <DialogDescription>
+                    Fill in student result information for {activeSession?.year}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="student">1. Student</TabsTrigger>
+                    <TabsTrigger value="scores" disabled={!selectedStudent}>
+                      2. Scores & Subjects
+                    </TabsTrigger>
+                    <TabsTrigger value="comments" disabled={!selectedStudent}>
+                      3. Comments
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* Tab 1: Student */}
+                  <TabsContent value="student" className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label>Select Student *</Label>
+                      <Select value={selectedStudent?.$id || ""} onValueChange={handleStudentSelect}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a student" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students.map((s) => (
+                            <SelectItem key={s.$id} value={s.$id}>
+                              {s.name} ({s.admissionNumber}) — {s.class}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedStudent && (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Term *</Label>
+                            <Select
+                              value={formData.term}
+                              onValueChange={(v) => setFormData({ ...formData, term: v as Term })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="First">First Term</SelectItem>
+                                <SelectItem value="Second">Second Term</SelectItem>
+                                <SelectItem value="Third">Third Term</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Result Type *</Label>
+                            <Select
+                              value={formData.resultType}
+                              onValueChange={(v) => setFormData({ ...formData, resultType: v as ResultType })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Midterm">Midterm</SelectItem>
+                                <SelectItem value="Examination">Examination</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="flex justify-end pt-4">
+                          <Button onClick={() => setActiveTab("scores")}>
+                            Next: Enter Scores
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </TabsContent>
+
+                  {/* Tab 2: Scores & Subject Editor */}
+                  <TabsContent value="scores" className="space-y-4 pt-4">
+                    <div className="flex gap-2 items-end bg-muted/30 p-3 rounded-lg border">
+                      <div className="space-y-1 flex-1">
+                        <Label className="text-xs">Add Personal Class Subject</Label>
+                        <Input 
+                          placeholder="e.g. Basic Science, Verbal Reasoning" 
+                          value={newSubjectName}
+                          onChange={(e) => setNewSubjectName(e.target.value)}
+                        />
+                      </div>
+                      <Button type="button" variant="secondary" onClick={handleAddCustomSubject}>
+                        <Plus className="h-4 w-4 mr-1" /> Add
+                      </Button>
+                    </div>
+
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Subject</TableHead>
+                            <TableHead className="w-[150px]">Score (0-100)</TableHead>
+                            <TableHead className="w-[100px]">Grade</TableHead>
+                            <TableHead>Remark</TableHead>
+                            <TableHead className="w-[70px] text-center">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {subjects.map((subject, index) => (
+                            <TableRow key={`${subject.name}-${index}`}>
+                              <TableCell className="font-medium">{subject.name}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                  value={subject.score || ""}
+                                  onChange={(e) => handleScoreChange(index, e.target.value)}
+                                />
+                              </TableCell>
+                              <TableCell className="font-bold">{subject.grade || "-"}</TableCell>
+                              <TableCell className="text-muted-foreground">{subject.remark || "-"}</TableCell>
+                              <TableCell className="text-center">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-destructive hover:bg-destructive/10 h-8 w-8"
+                                  onClick={() => handleRemoveSubject(index)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg text-sm font-medium">
+                      <div>Total Score: <span className="font-bold">{totalScore}</span></div>
+                      <div>Average Score: <span className="font-bold">{avgScore}%</span></div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button variant="outline" onClick={() => setActiveTab("student")}>
+                        Back
+                      </Button>
+                      <Button onClick={() => setActiveTab("comments")}>
+                        Next: Comments
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Tab 3: Comments */}
+                  <TabsContent value="comments" className="space-y-4 pt-4">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="teacherComment">Teacher's Comment</Label>
+                        <textarea
+                          id="teacherComment"
+                          placeholder="Enter observations..."
+                          rows={4}
+                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          value={formData.teacherComment}
+                          onChange={(e) => setFormData({ ...formData, teacherComment: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="principalComment">Principal's Comment (Optional)</Label>
+                        <textarea
+                          id="principalComment"
+                          placeholder="Principal evaluation..."
+                          rows={4}
+                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          value={formData.principalComment}
+                          onChange={(e) => setFormData({ ...formData, principalComment: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <DialogFooter className="gap-2 pt-6">
+                      <Button variant="outline" onClick={() => setActiveTab("scores")} disabled={saving}>
+                        Back
+                      </Button>
+                      <Button onClick={handleCreateResult} disabled={saving}>
+                        {saving ? "Saving..." : "Save Result"}
+                      </Button>
+                    </DialogFooter>
+                  </TabsContent>
+                </Tabs>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      </div>
     </DashboardLayout>
   );
 }

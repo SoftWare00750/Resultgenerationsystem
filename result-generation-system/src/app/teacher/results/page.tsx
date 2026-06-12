@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectIitem,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -62,6 +63,7 @@ import {
   EyeOff,
   Trash2,
   FileText,
+  X,
 } from "lucide-react";
 import { Student, Result, Subject, Term, ResultType, Session } from "@/lib/types";
 import { getSubjectsByCategory } from "@/lib/types";
@@ -81,6 +83,7 @@ export default function TeacherResultsPage() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [activeTab, setActiveTab] = useState("student");
+  const [newSubjectName, setNewSubjectName] = useState("");
 
   const [formData, setFormData] = useState({
     term: "First" as Term,
@@ -91,8 +94,8 @@ export default function TeacherResultsPage() {
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
 
-  // Helper key matching TeacherStudentsPage localStorage persistence layout
   const LOCAL_STORAGE_KEY = "system_students_backup";
+  const LOCAL_CLASSES_KEY = "system_classes_subjects_backup";
 
   const fetchData = async () => {
     if (!user) return;
@@ -117,11 +120,9 @@ export default function TeacherResultsPage() {
         console.warn("Remote student service failed inside results portal, pulling local fallback dataset.");
       }
 
-      // Read fallback local student records
       const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
       const savedLocalStudents: Student[] = localData ? JSON.parse(localData) : [];
 
-      // Combine arrays cleanly and eliminate any duplicate IDs
       const combined = [...allRemoteStudents, ...savedLocalStudents];
       const uniqueStudents = combined.filter(
         (student, index, self) => self.findIndex(s => s.$id === student.$id) === index
@@ -135,7 +136,6 @@ export default function TeacherResultsPage() {
       );
       setMyResults(teacherResults);
     } catch {
-      // Final standalone backup catch block for local continuity
       const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (localData) {
         setStudents(JSON.parse(localData));
@@ -150,7 +150,6 @@ export default function TeacherResultsPage() {
   useEffect(() => {
     fetchData();
 
-    // Attach immediate reactive listeners matching your notifyStorageUpdate setup
     if (typeof window !== "undefined") {
       window.addEventListener("storage", fetchData);
       window.addEventListener("localStudentsUpdated", fetchData);
@@ -168,9 +167,24 @@ export default function TeacherResultsPage() {
     const student = students.find((s) => s.$id === studentId);
     if (!student) return;
     setSelectedStudent(student);
-    const subjectList = getSubjectsByCategory(student.class);
+
+    // 1. Check if Admin defined specialized subjects for this specific class inside local storage
+    const storedClasses = localStorage.getItem(LOCAL_CLASSES_KEY);
+    let classSpecificSubjects: string[] = [];
+    if (storedClasses) {
+      const parsedClasses = JSON.parse(storedClasses);
+      const exactClass = parsedClasses.find((c: any) => c.name === student.class);
+      if (exactClass && exactClass.subjects) {
+        classSpecificSubjects = exactClass.subjects;
+      }
+    }
+
+    // 2. Fallback to generic structural layout if no admin layout specified
+    const fallbackSubjects = getSubjectsByCategory(student.class);
+    const finalSubjectNames = classSpecificSubjects.length > 0 ? classSpecificSubjects : fallbackSubjects;
+
     setSubjects(
-      subjectList.map((name) => ({ name, score: 0, grade: "", remark: "" }))
+      finalSubjectNames.map((name) => ({ name, score: 0, grade: "", remark: "" }))
     );
     setActiveTab("student");
   };
@@ -185,11 +199,33 @@ export default function TeacherResultsPage() {
     setSubjects(updated);
   };
 
+  const handleAddCustomSubject = () => {
+    if (!newSubjectName.trim()) {
+      toast.error("Subject name cannot be blank");
+      return;
+    }
+    if (subjects.some(s => s.name.toLowerCase() === newSubjectName.trim().toLowerCase())) {
+      toast.error("This subject is already present on this report form");
+      return;
+    }
+    const updated = [...subjects, { name: newSubjectName.trim(), score: 0, grade: "", remark: "" }];
+    setSubjects(updated);
+    setNewSubjectName("");
+    toast.success("Subject added to this student's draft view");
+  };
+
+  const handleRemoveSubject = (index: number) => {
+    const updated = subjects.filter((_, i) => i !== index);
+    setSubjects(updated);
+  };
+
   const handleCreateResult = async () => {
     if (!selectedStudent || !user || !activeSession) {
-      toast.error(
-        "Please select a student and ensure an active session exists"
-      );
+      toast.error("Please select a student and ensure an active session exists");
+      return;
+    }
+    if (subjects.length === 0) {
+      toast.error("Please assign at least one subject to generate scores");
       return;
     }
     if (subjects.some((s) => s.score < 0 || s.score > 100)) {
@@ -223,33 +259,6 @@ export default function TeacherResultsPage() {
     }
   };
 
-  const handleTogglePublish = async (result: Result) => {
-    try {
-      if (result.published) {
-        await resultsService.unpublishResult(result.$id);
-        toast.success("Result unpublished");
-      } else {
-        await resultsService.publishResult(result.$id);
-        toast.success("Result published — parents can now see it");
-      }
-      fetchData();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update result");
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!selectedResult) return;
-    try {
-      await resultsService.deleteResult(selectedResult.$id);
-      toast.success("Result deleted");
-      setDeleteDialogOpen(false);
-      fetchData();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to delete result");
-    }
-  };
-
   const resetForm = () => {
     setSelectedStudent(null);
     setFormData({
@@ -259,14 +268,12 @@ export default function TeacherResultsPage() {
       principalComment: "",
     });
     setSubjects([]);
+    setNewSubjectName("");
     setActiveTab("student");
   };
 
   const totalScore = subjects.reduce((s, sub) => s + (sub.score || 0), 0);
-  const avgScore =
-    subjects.length > 0
-      ? (totalScore / subjects.length).toFixed(1)
-      : "0.0";
+  const avgScore = subjects.length > 0 ? (totalScore / subjects.length).toFixed(1) : "0.0";
 
   if (!loading && !activeSession) {
     return (
@@ -291,21 +298,12 @@ export default function TeacherResultsPage() {
           <div>
             <h1 className="text-3xl font-bold">Results</h1>
             <p className="text-muted-foreground">
-              {activeSession
-                ? `Session: ${activeSession.year}`
-                : "Loading session…"}
+              {activeSession ? `Session: ${activeSession.year}` : "Loading session…"}
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              onClick={fetchData}
-              variant="outline"
-              size="sm"
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
+            <Button onClick={fetchData} variant="outline" size="sm" disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
             <Dialog
@@ -329,15 +327,11 @@ export default function TeacherResultsPage() {
                   </DialogDescription>
                 </DialogHeader>
 
-                <Tabs
-                  value={activeTab}
-                  onValueChange={setActiveTab}
-                  className="w-full"
-                >
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="student">1. Student</TabsTrigger>
                     <TabsTrigger value="scores" disabled={!selectedStudent}>
-                      2. Scores
+                      2. Scores & Subjects
                     </TabsTrigger>
                     <TabsTrigger value="comments" disabled={!selectedStudent}>
                       3. Comments
@@ -348,10 +342,7 @@ export default function TeacherResultsPage() {
                   <TabsContent value="student" className="space-y-4 pt-4">
                     <div className="space-y-2">
                       <Label>Select Student *</Label>
-                      <Select
-                        value={selectedStudent?.$id || ""}
-                        onValueChange={handleStudentSelect}
-                      >
+                      <Select value={selectedStudent?.$id || ""} onValueChange={handleStudentSelect}>
                         <SelectTrigger>
                           <SelectValue placeholder="Choose a student" />
                         </SelectTrigger>
@@ -372,20 +363,14 @@ export default function TeacherResultsPage() {
                             <Label>Term *</Label>
                             <Select
                               value={formData.term}
-                              onValueChange={(v) =>
-                                setFormData({ ...formData, term: v as Term })
-                              }
+                              onValueChange={(v) => setFormData({ ...formData, term: v as Term })}
                             >
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="First">
-                                  First Term
-                                </SelectItem>
-                                <SelectItem value="Second">
-                                  Second Term
-                                </SelectItem>
+                                <SelectItem value="First">First Term</SelectItem>
+                                <SelectItem value="Second">Second Term</SelectItem>
                                 <SelectItem value="Third">Third Term</SelectItem>
                               </SelectContent>
                             </Select>
@@ -394,21 +379,14 @@ export default function TeacherResultsPage() {
                             <Label>Result Type *</Label>
                             <Select
                               value={formData.resultType}
-                              onValueChange={(v) =>
-                                setFormData({
-                                  ...formData,
-                                  resultType: v as ResultType,
-                                })
-                              }
+                              onValueChange={(v) => setFormData({ ...formData, resultType: v as ResultType })}
                             >
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Midterm">Midterm</SelectItem>
-                                <SelectItem value="Examination">
-                                  Examination
-                                </SelectItem>
+                                <SelectItem value="Examination">Examination</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -422,8 +400,22 @@ export default function TeacherResultsPage() {
                     )}
                   </TabsContent>
 
-                  {/* Tab 2: Scores */}
+                  {/* Tab 2: Scores & Subject Editor */}
                   <TabsContent value="scores" className="space-y-4 pt-4">
+                    <div className="flex gap-2 items-end bg-muted/30 p-3 rounded-lg border">
+                      <div className="space-y-1 flex-1">
+                        <Label className="text-xs">Add Personal Class Subject</Label>
+                        <Input 
+                          placeholder="e.g. Basic Science, Verbal Reasoning" 
+                          value={newSubjectName}
+                          onChange={(e) => setNewSubjectName(e.target.value)}
+                        />
+                      </div>
+                      <Button type="button" variant="secondary" onClick={handleAddCustomSubject}>
+                        <Plus className="h-4 w-4 mr-1" /> Add
+                      </Button>
+                    </div>
+
                     <div className="rounded-md border">
                       <Table>
                         <TableHeader>
@@ -432,11 +424,12 @@ export default function TeacherResultsPage() {
                             <TableHead className="w-[150px]">Score (0-100)</TableHead>
                             <TableHead className="w-[100px]">Grade</TableHead>
                             <TableHead>Remark</TableHead>
+                            <TableHead className="w-[70px] text-center">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {subjects.map((subject, index) => (
-                            <TableRow key={subject.name}>
+                            <TableRow key={`${subject.name}-${index}`}>
                               <TableCell className="font-medium">{subject.name}</TableCell>
                               <TableCell>
                                 <Input
@@ -450,6 +443,16 @@ export default function TeacherResultsPage() {
                               </TableCell>
                               <TableCell className="font-bold">{subject.grade || "-"}</TableCell>
                               <TableCell className="text-muted-foreground">{subject.remark || "-"}</TableCell>
+                              <TableCell className="text-center">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-destructive hover:bg-destructive/10 h-8 w-8"
+                                  onClick={() => handleRemoveSubject(index)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -478,27 +481,22 @@ export default function TeacherResultsPage() {
                         <Label htmlFor="teacherComment">Teacher's Comment</Label>
                         <textarea
                           id="teacherComment"
-                          placeholder="Enter your observations regarding student academic growth and behavior..."
+                          placeholder="Enter observations..."
                           rows={4}
-                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           value={formData.teacherComment}
-                          onChange={(e) =>
-                            setFormData({ ...formData, teacherComment: e.target.value })
-                          }
+                          onChange={(e) => setFormData({ ...formData, teacherComment: e.target.value })}
                         />
                       </div>
-
                       <div className="space-y-2">
                         <Label htmlFor="principalComment">Principal's Comment (Optional)</Label>
                         <textarea
                           id="principalComment"
-                          placeholder="Principal evaluation commentary..."
+                          placeholder="Principal evaluation..."
                           rows={4}
-                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           value={formData.principalComment}
-                          onChange={(e) =>
-                            setFormData({ ...formData, principalComment: e.target.value })
-                          }
+                          onChange={(e) => setFormData({ ...formData, principalComment: e.target.value })}
                         />
                       </div>
                     </div>
