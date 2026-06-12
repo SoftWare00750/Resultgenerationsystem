@@ -285,6 +285,7 @@ export default function StudentsPage() {
                     />
                   </div>
                 </div>
+                
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancel
