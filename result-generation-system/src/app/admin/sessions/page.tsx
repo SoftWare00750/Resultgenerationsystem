@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,13 +10,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { sessionsService } from '@/lib/services/sessions';
 import { toast } from 'sonner';
-import { Plus, CheckCircle, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, CheckCircle, Trash2, RefreshCw, Calendar } from 'lucide-react';
 import { Session } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { Calendar } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import Image from 'next/image';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -24,13 +30,18 @@ export default function SessionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [year, setYear] = useState('');
+
+  // Stable ref so handleDeleteConfirm always sees the latest session
+  // even if Radix closes the dialog and re-renders before onClick fires
+  const pendingDeleteRef = useRef<Session | null>(null);
 
   const fetchSessions = async () => {
     try {
       const allSessions = await sessionsService.getAllSessions();
       setSessions(allSessions);
-    } catch (error) {
+    } catch {
       toast.error('Failed to fetch sessions');
     } finally {
       setLoading(false);
@@ -46,7 +57,6 @@ export default function SessionsPage() {
       toast.error('Please enter a session year');
       return;
     }
-
     try {
       await sessionsService.createSession(year, false);
       toast.success('Session created successfully');
@@ -69,20 +79,32 @@ export default function SessionsPage() {
   };
 
   const handleDeleteClick = (session: Session) => {
+    // Store in both state AND ref — ref is immune to stale closures
     setSelectedSession(session);
+    pendingDeleteRef.current = session;
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!selectedSession) return;
+    // Read from ref first (reliable), fall back to state
+    const target = pendingDeleteRef.current ?? selectedSession;
+    if (!target) {
+      toast.error('No session selected');
+      return;
+    }
 
+    setDeleting(true);
     try {
-      await sessionsService.deleteSession(selectedSession.$id);
-      toast.success('Session deleted successfully');
+      await sessionsService.deleteSession(target.$id);
+      toast.success(`Session "${target.year}" deleted`);
       setDeleteDialogOpen(false);
       fetchSessions();
     } catch (error: any) {
       toast.error(error.message || 'Failed to delete session');
+    } finally {
+      setDeleting(false);
+      pendingDeleteRef.current = null;
+      setSelectedSession(null);
     }
   };
 
@@ -149,7 +171,7 @@ export default function SessionsPage() {
                 description="Create your first academic session"
                 action={{
                   label: "Add Session",
-                  onClick: () => setDialogOpen(true)
+                  onClick: () => setDialogOpen(true),
                 }}
               />
             ) : (
@@ -196,6 +218,7 @@ export default function SessionsPage() {
                               size="sm"
                               onClick={() => handleDeleteClick(session)}
                               disabled={session.isActive}
+                              title={session.isActive ? 'Cannot delete the active session' : 'Delete session'}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
@@ -211,19 +234,38 @@ export default function SessionsPage() {
         </Card>
       </div>
 
+      {/* 
+        Using controlled open + manual close instead of AlertDialogAction,
+        which avoids Radix auto-closing the dialog before onClick fires
+        and causing selectedSession to go stale.
+      */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this session?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the {selectedSession?.year} session. This action cannot be undone.
+              This will permanently delete the{' '}
+              <span className="font-semibold">{selectedSession?.year}</span> session.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            {/* Plain Button instead of AlertDialogAction to prevent Radix auto-close race */}
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  Deleting…
+                </span>
+              ) : (
+                'Delete Session'
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
