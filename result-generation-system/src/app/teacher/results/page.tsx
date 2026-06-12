@@ -37,7 +37,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea"; // Added Textarea for comments
 import {
   AlertDialog,
   AlertDialogAction,
@@ -456,7 +455,7 @@ export default function TeacherResultsPage() {
                         </TableBody>
                       </Table>
                     </div>
-                    
+
                     <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg text-sm font-medium">
                       <div>Total Score: <span className="font-bold">{totalScore}</span></div>
                       <div>Average Score: <span className="font-bold">{avgScore}%</span></div>
@@ -477,10 +476,11 @@ export default function TeacherResultsPage() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="teacherComment">Teacher's Comment</Label>
-                        <Textarea
+                        <textarea
                           id="teacherComment"
                           placeholder="Enter your observations regarding student academic growth and behavior..."
                           rows={4}
+                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                           value={formData.teacherComment}
                           onChange={(e) =>
                             setFormData({ ...formData, teacherComment: e.target.value })
@@ -490,10 +490,11 @@ export default function TeacherResultsPage() {
 
                       <div className="space-y-2">
                         <Label htmlFor="principalComment">Principal's Comment (Optional)</Label>
-                        <Textarea
+                        <textarea
                           id="principalComment"
                           placeholder="Principal evaluation commentary..."
                           rows={4}
+                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                           value={formData.principalComment}
                           onChange={(e) =>
                             setFormData({ ...formData, principalComment: e.target.value })
@@ -511,7 +512,6 @@ export default function TeacherResultsPage() {
                       </Button>
                     </DialogFooter>
                   </TabsContent>
-
                 </Tabs>
               </DialogContent>
             </Dialog>
