@@ -195,7 +195,8 @@ export default function TeacherResultsPage() {
     setSubjects(
       finalSubjectNames.map((name) => ({ 
         name, 
-        cat: 0, 
+        cat1: 0, 
+        cat2: 0, 
         assignment: 0, 
         exam: 0, 
         score: 0, 
@@ -214,7 +215,7 @@ export default function TeacherResultsPage() {
     updated[index][field] = numValue;
 
     // Recalculate dynamic cumulative score
-    const computedTotal = updated[index].cat + updated[index].assignment + updated[index].exam;
+    const computedTotal = updated[index].cat1 + updated[index].cat2 + updated[index].assignment + updated[index].exam;
     updated[index].score = Math.min(100, computedTotal);
 
     // Apply grading based on aggregated sum
@@ -236,7 +237,7 @@ export default function TeacherResultsPage() {
     }
     const updated = [
       ...subjects, 
-      { name: newSubjectName.trim(), cat: 0, assignment: 0, exam: 0, score: 0, grade: "", remark: "" }
+      { name: newSubjectName.trim(), cat1: 0, cat2: 0, assignment: 0, exam: 0, score: 0, grade: "", remark: "" }
     ];
     setSubjects(updated);
     setNewSubjectName("");
@@ -450,7 +451,8 @@ export default function TeacherResultsPage() {
                         <TableHeader>
                           <TableRow>
                             <TableHead className="min-w-[150px]">Subject</TableHead>
-                            <TableHead className="w-[100px]">CAT</TableHead>
+                            <TableHead className="w-[100px]">CAT1</TableHead>
+                            <TableHead className="w-[100px]">CAT2</TableHead>
                             <TableHead className="w-[100px]">Assignment</TableHead>
                             <TableHead className="w-[100px]">Exam</TableHead>
                             <TableHead className="w-[90px] font-bold">Total</TableHead>
@@ -469,8 +471,20 @@ export default function TeacherResultsPage() {
                                   min="0"
                                   max="100"
                                   placeholder="0"
-                                  value={subject.cat || ""}
-                                  onChange={(e) => handleAssessmentChange(index, "cat", e.target.value)}
+                                  value={subject.cat1 || ""}
+                                  onChange={(e) => handleAssessmentChange(index, "cat1", e.target.value)}
+                                  className="h-8"
+                                />
+                              </TableCell>
+                               <TableCell className="font-medium">{subject.name}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                  value={subject.cat2 || ""}
+                                  onChange={(e) => handleAssessmentChange(index, "cat2", e.target.value)}
                                   className="h-8"
                                 />
                               </TableCell>
