@@ -37,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea"; // Added Textarea for comments
 import {
   AlertDialog,
   AlertDialogAction,
@@ -413,9 +414,104 @@ export default function TeacherResultsPage() {
                             </Select>
                           </div>
                         </div>
+                        <div className="flex justify-end pt-4">
+                          <Button onClick={() => setActiveTab("scores")}>
+                            Next: Enter Scores
+                          </Button>
+                        </div>
                       </>
                     )}
                   </TabsContent>
+
+                  {/* Tab 2: Scores */}
+                  <TabsContent value="scores" className="space-y-4 pt-4">
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Subject</TableHead>
+                            <TableHead className="w-[150px]">Score (0-100)</TableHead>
+                            <TableHead className="w-[100px]">Grade</TableHead>
+                            <TableHead>Remark</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {subjects.map((subject, index) => (
+                            <TableRow key={subject.name}>
+                              <TableCell className="font-medium">{subject.name}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                  value={subject.score || ""}
+                                  onChange={(e) => handleScoreChange(index, e.target.value)}
+                                />
+                              </TableCell>
+                              <TableCell className="font-bold">{subject.grade || "-"}</TableCell>
+                              <TableCell className="text-muted-foreground">{subject.remark || "-"}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    
+                    <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg text-sm font-medium">
+                      <div>Total Score: <span className="font-bold">{totalScore}</span></div>
+                      <div>Average Score: <span className="font-bold">{avgScore}%</span></div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button variant="outline" onClick={() => setActiveTab("student")}>
+                        Back
+                      </Button>
+                      <Button onClick={() => setActiveTab("comments")}>
+                        Next: Comments
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Tab 3: Comments */}
+                  <TabsContent value="comments" className="space-y-4 pt-4">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="teacherComment">Teacher's Comment</Label>
+                        <Textarea
+                          id="teacherComment"
+                          placeholder="Enter your observations regarding student academic growth and behavior..."
+                          rows={4}
+                          value={formData.teacherComment}
+                          onChange={(e) =>
+                            setFormData({ ...formData, teacherComment: e.target.value })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="principalComment">Principal's Comment (Optional)</Label>
+                        <Textarea
+                          id="principalComment"
+                          placeholder="Principal evaluation commentary..."
+                          rows={4}
+                          value={formData.principalComment}
+                          onChange={(e) =>
+                            setFormData({ ...formData, principalComment: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <DialogFooter className="gap-2 pt-6">
+                      <Button variant="outline" onClick={() => setActiveTab("scores")} disabled={saving}>
+                        Back
+                      </Button>
+                      <Button onClick={handleCreateResult} disabled={saving}>
+                        {saving ? "Saving..." : "Save Result"}
+                      </Button>
+                    </DialogFooter>
+                  </TabsContent>
+
                 </Tabs>
               </DialogContent>
             </Dialog>
