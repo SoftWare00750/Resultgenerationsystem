@@ -64,10 +64,21 @@ import {
   FileText,
   X,
 } from "lucide-react";
-import { Student, Result, Subject, Term, ResultType, Session } from "@/lib/types";
+import { Student, Result, Term, ResultType, Session } from "@/lib/types";
 import { getSubjectsByCategory } from "@/lib/types";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { getOrdinalSuffix } from "@/lib/utils";
+
+// Locally extending Subject interface to support granular fields
+interface AssessmentSubject {
+  name: string;
+  cat: number;
+  assignment: number;
+  exam: number;
+  score: number; // calculated total (cat + assignment + exam)
+  grade: string;
+  remark: string;
+}
 
 export default function TeacherResultsPage() {
   const { user } = useAuthStore();
@@ -91,7 +102,7 @@ export default function TeacherResultsPage() {
     principalComment: "",
   });
 
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<AssessmentSubject[]>([]);
 
   const LOCAL_STORAGE_KEY = "system_students_backup";
   const LOCAL_CLASSES_KEY = "system_classes_subjects_backup";
@@ -167,7 +178,6 @@ export default function TeacherResultsPage() {
     if (!student) return;
     setSelectedStudent(student);
 
-    // 1. Check if Admin defined specialized subjects for this specific class inside local storage
     const storedClasses = localStorage.getItem(LOCAL_CLASSES_KEY);
     let classSpecificSubjects: string[] = [];
     if (storedClasses) {
@@ -178,23 +188,39 @@ export default function TeacherResultsPage() {
       }
     }
 
-    // 2. Fallback to generic structural layout if no admin layout specified
     const fallbackSubjects = getSubjectsByCategory(student.class);
     const finalSubjectNames = classSpecificSubjects.length > 0 ? classSpecificSubjects : fallbackSubjects;
 
     setSubjects(
-      finalSubjectNames.map((name) => ({ name, score: 0, grade: "", remark: "" }))
+      finalSubjectNames.map((name) => ({ 
+        name, 
+        cat: 0, 
+        assignment: 0, 
+        exam: 0, 
+        score: 0, 
+        grade: "", 
+        remark: "" 
+      }))
     );
     setActiveTab("student");
   };
 
-  const handleScoreChange = (index: number, score: string) => {
-    const numScore = Math.min(100, Math.max(0, parseFloat(score) || 0));
+  const handleAssessmentChange = (index: number, field: "cat" | "assignment" | "exam", value: string) => {
+    const numValue = Math.max(0, parseFloat(value) || 0);
     const updated = [...subjects];
-    updated[index].score = numScore;
-    const gradeInfo = resultsService.calculateGrade(numScore);
+    
+    // Assign parsed configuration field value
+    updated[index][field] = numValue;
+
+    // Recalculate dynamic cumulative score
+    const computedTotal = updated[index].cat + updated[index].assignment + updated[index].exam;
+    updated[index].score = Math.min(100, computedTotal);
+
+    // Apply grading based on aggregated sum
+    const gradeInfo = resultsService.calculateGrade(updated[index].score);
     updated[index].grade = gradeInfo.grade;
     updated[index].remark = gradeInfo.remark;
+
     setSubjects(updated);
   };
 
@@ -207,7 +233,10 @@ export default function TeacherResultsPage() {
       toast.error("This subject is already present on this report form");
       return;
     }
-    const updated = [...subjects, { name: newSubjectName.trim(), score: 0, grade: "", remark: "" }];
+    const updated = [
+      ...subjects, 
+      { name: newSubjectName.trim(), cat: 0, assignment: 0, exam: 0, score: 0, grade: "", remark: "" }
+    ];
     setSubjects(updated);
     setNewSubjectName("");
     toast.success("Subject added to this student's draft view");
@@ -228,7 +257,7 @@ export default function TeacherResultsPage() {
       return;
     }
     if (subjects.some((s) => s.score < 0 || s.score > 100)) {
-      toast.error("All scores must be between 0 and 100");
+      toast.error("Calculated total scores must be between 0 and 100");
       return;
     }
     setSaving(true);
@@ -241,7 +270,7 @@ export default function TeacherResultsPage() {
         term: formData.term,
         session: activeSession.year,
         resultType: formData.resultType,
-        subjects,
+        subjects, // Sends full dynamic breakdown structure
         teacherComment: formData.teacherComment,
         principalComment: formData.principalComment,
         published: false,
@@ -318,7 +347,7 @@ export default function TeacherResultsPage() {
                   Create Result
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Create New Result</DialogTitle>
                   <DialogDescription>
@@ -415,15 +444,18 @@ export default function TeacherResultsPage() {
                       </Button>
                     </div>
 
-                    <div className="rounded-md border">
+                    <div className="rounded-md border overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Subject</TableHead>
-                            <TableHead className="w-[150px]">Score (0-100)</TableHead>
-                            <TableHead className="w-[100px]">Grade</TableHead>
-                            <TableHead>Remark</TableHead>
-                            <TableHead className="w-[70px] text-center">Action</TableHead>
+                            <TableHead className="min-w-[150px]">Subject</TableHead>
+                            <TableHead className="w-[100px]">CAT</TableHead>
+                            <TableHead className="w-[100px]">Assignment</TableHead>
+                            <TableHead className="w-[100px]">Exam</TableHead>
+                            <TableHead className="w-[90px] font-bold">Total</TableHead>
+                            <TableHead className="w-[80px]">Grade</TableHead>
+                            <TableHead className="min-w-[120px]">Remark</TableHead>
+                            <TableHead className="w-[60px] text-center">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -436,12 +468,42 @@ export default function TeacherResultsPage() {
                                   min="0"
                                   max="100"
                                   placeholder="0"
-                                  value={subject.score || ""}
-                                  onChange={(e) => handleScoreChange(index, e.target.value)}
+                                  value={subject.cat || ""}
+                                  onChange={(e) => handleAssessmentChange(index, "cat", e.target.value)}
+                                  className="h-8"
                                 />
                               </TableCell>
-                              <TableCell className="font-bold">{subject.grade || "-"}</TableCell>
-                              <TableCell className="text-muted-foreground">{subject.remark || "-"}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                  value={subject.assignment || ""}
+                                  onChange={(e) => handleAssessmentChange(index, "assignment", e.target.value)}
+                                  className="h-8"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                  value={subject.exam || ""}
+                                  onChange={(e) => handleAssessmentChange(index, "exam", e.target.value)}
+                                  className="h-8"
+                                />
+                              </TableCell>
+                              <TableCell className="font-bold bg-muted/20">
+                                {subject.score}
+                              </TableCell>
+                              <TableCell className="font-bold text-primary">
+                                {subject.grade || "-"}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-sm">
+                                {subject.remark || "-"}
+                              </TableCell>
                               <TableCell className="text-center">
                                 <Button 
                                   variant="ghost" 
@@ -459,7 +521,7 @@ export default function TeacherResultsPage() {
                     </div>
 
                     <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg text-sm font-medium">
-                      <div>Total Score: <span className="font-bold">{totalScore}</span></div>
+                      <div>Total Cumulative Score: <span className="font-bold">{totalScore}</span></div>
                       <div>Average Score: <span className="font-bold">{avgScore}%</span></div>
                     </div>
 
