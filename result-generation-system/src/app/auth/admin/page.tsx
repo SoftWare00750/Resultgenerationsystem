@@ -146,23 +146,7 @@ export default function AdminLoginPage() {
             </Button>
           </form>
 
-          {/* Default credentials hint */}
-          <div className="rounded-xl border bg-muted/30 p-4 space-y-1.5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Default credentials
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Email:{" "}
-              <span className="font-mono text-foreground">
-                admin@school.edu.ng
-              </span>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Password:{" "}
-              <span className="font-mono text-foreground">Admin@123</span>
-            </p>
-          </div>
-
+          
           {/* Register link */}
           <p className="text-center text-sm text-muted-foreground">
             Need to create an account?{" "}
