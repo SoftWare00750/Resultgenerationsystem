@@ -476,7 +476,6 @@ export default function TeacherResultsPage() {
                                   className="h-8"
                                 />
                               </TableCell>
-                               <TableCell className="font-medium">{subject.name}</TableCell>
                               <TableCell>
                                 <Input
                                   type="number"
