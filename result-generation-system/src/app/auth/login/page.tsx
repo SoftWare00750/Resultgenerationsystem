@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/lib/services/auth';
@@ -11,10 +12,6 @@ import Link from 'next/link';
 import { Eye, EyeOff, GraduationCap, BookOpen, Users, FileText, Shield } from 'lucide-react';
 import { seedDefaults, ensureAdminPassword } from '@/lib/storage';
 import Image from 'next/image';
-import { useNavigate } from 'react-router-dom';
-
-export default function YourComponent() {
-  const navigate = useNavigate();
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,10 +41,6 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (role: 'admin' | 'teacher' | 'parent') => {
-    if (role === 'admin') { setEmail('admin@school.edu.ng'); setPassword('Admin@123'); }
-  };
-
   return (
     <div className="min-h-screen flex bg-background">
       {/* Left branding panel */}
@@ -68,7 +61,6 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col justify-between h-full p-12">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            {/* FIX: use a sized wrapper with position:relative for fill Image */}
             <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-white/20">
               <Image
                 src="/images/Result%20Generation%20System.jpg"
@@ -121,7 +113,6 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3">
-            {/* FIX: use a sized wrapper with position:relative for fill Image */}
             <div className="relative w-10 h-10 rounded-xl overflow-hidden">
               <Image
                 src="/images/Result Generation System.jpg"
@@ -196,12 +187,12 @@ export default function LoginPage() {
             </div>
             <div className="space-y-1.5">
               <button
-      type="button"
-      onClick={() => navigate('/auth/admin')}
-      className="w-full text-left text-sm px-3 py-2 rounded-lg bg-background border hover:border-primary/50 transition-colors"
-    >
-      <span className="font-medium"> Go To Admin SignIn</span>
-    </button>
+                type="button"
+                onClick={() => router.push('/auth/admin')}
+                className="w-full text-left text-sm px-3 py-2 rounded-lg bg-background border hover:border-primary/50 transition-colors"
+              >
+                <span className="font-medium"> Go To Admin SignIn</span>
+              </button>
             </div>
             <p className="text-xs text-muted-foreground">Go To Admin Section to register teachers & parents with auth codes.</p>
           </div>
@@ -209,5 +200,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-}
 }
