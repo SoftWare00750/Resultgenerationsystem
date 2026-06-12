@@ -72,10 +72,11 @@ import { getOrdinalSuffix } from "@/lib/utils";
 // Locally extending Subject interface to support granular fields
 interface AssessmentSubject {
   name: string;
-  cat: number;
+  cat1: number;
+  cat2: number;
   assignment: number;
   exam: number;
-  score: number; // calculated total (cat + assignment + exam)
+  score: number; // calculated total (cat1 + cat2 + assignment + exam)
   grade: string;
   remark: string;
 }
