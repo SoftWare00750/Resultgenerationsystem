@@ -67,6 +67,7 @@ export interface Result {
   psychomotorSkills?: Record<string, number>;
   house?: string;
   club?: string;
+  age?: string;
 }
 
 export type ClassCategory = 'Nursery' | 'Kindergarten' | 'Primary';
