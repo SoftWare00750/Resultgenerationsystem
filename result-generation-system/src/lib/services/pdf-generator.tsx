@@ -1,11 +1,9 @@
-// PDF Result Generator
-// Fixes:
-//   1. All <Text> children are coerced to strings — @react-pdf/renderer crashes
-//      on undefined/null/number children with "Cannot read properties of undefined
-//      (reading 'hasOwnProperty')".
-//   2. Logo is fetched as a base64 data URI at call time so the renderer can embed it.
-//   3. `gap` is not supported in this version of @react-pdf/renderer — replaced with margins.
-//   4. borderBottom shorthand is not supported — expanded to borderBottomWidth/Color.
+// PDF Result Generator — FIXED
+// All <Text> children are coerced to strings via str() / String().
+// @react-pdf/renderer crashes with "Cannot read properties of undefined
+// (reading 'hasOwnProperty')" whenever a child is undefined, null, or a
+// raw number. Every single value that ends up inside <Text>…</Text> must
+// be a string.
 
 import {
   Document,
@@ -26,7 +24,10 @@ import { getOrdinalSuffix } from '@/lib/utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Coerce any value to a non-empty string safe for <Text> children. */
+/**
+ * Coerce ANY value to a non-empty string safe for <Text> children.
+ * Handles: undefined, null, number, boolean, object → string.
+ */
 const str = (v: unknown, fallback = '—'): string => {
   if (v === null || v === undefined) return fallback;
   const s = String(v).trim();
@@ -35,7 +36,7 @@ const str = (v: unknown, fallback = '—'): string => {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const COLOR_PRIMARY = '#1f3d2e';
+const COLOR_PRIMARY  = '#1f3d2e';
 const COLOR_HEADER_BG = '#f3d9b1';
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -52,150 +53,78 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     marginBottom: 6,
   },
-  logo: { width: 50, height: 50, marginRight: 10 },
+  logo:            { width: 50, height: 50, marginRight: 10 },
   logoPlaceholder: { width: 50, height: 50, marginRight: 10, backgroundColor: '#e5e5e5' },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  schoolName: { fontSize: 16, fontWeight: 'bold', color: COLOR_PRIMARY, textAlign: 'center' },
-  motto: { fontSize: 8, textAlign: 'center', marginTop: 1 },
-  addressLine: { fontSize: 7, textAlign: 'center', color: '#444444', marginTop: 1 },
-  reportTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginTop: 6,
-    textTransform: 'uppercase',
-  },
-  reportSubtitle: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginTop: 2,
-    textTransform: 'uppercase',
-    color: COLOR_PRIMARY,
-  },
+  headerCenter:    { flex: 1, alignItems: 'center' },
+  schoolName:      { fontSize: 16, fontWeight: 'bold', color: COLOR_PRIMARY, textAlign: 'center' },
+  motto:           { fontSize: 8, textAlign: 'center', marginTop: 1 },
+  addressLine:     { fontSize: 7, textAlign: 'center', color: '#444444', marginTop: 1 },
+  reportTitle:     { fontSize: 12, fontWeight: 'bold', textAlign: 'center', marginTop: 6, textTransform: 'uppercase' },
+  reportSubtitle:  { fontSize: 9, fontWeight: 'bold', textAlign: 'center', marginTop: 2, textTransform: 'uppercase', color: COLOR_PRIMARY },
 
   // Student info bar
-  infoBar: {
-    borderWidth: 1,
-    borderColor: '#cccccc',
-    padding: 5,
-    marginTop: 6,
-    marginBottom: 6,
-  },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
+  infoBar:   { borderWidth: 1, borderColor: '#cccccc', padding: 5, marginTop: 6, marginBottom: 6 },
+  infoRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
   infoLabel: { fontWeight: 'bold' },
 
-  // Layout columns — no `gap` (unsupported); use marginRight on left col instead
-  twoCol: { flexDirection: 'row' },
+  // Two-column layout (no gap — unsupported; use marginRight on left col)
+  twoCol:  { flexDirection: 'row' },
   colLeft: { flex: 2, marginRight: 8 },
-  colRight: { flex: 1 },
+  colRight:{ flex: 1 },
 
   // Subject table
-  table: { borderWidth: 1, borderColor: '#bbbbbb', marginBottom: 6 },
+  table:    { borderWidth: 1, borderColor: '#bbbbbb', marginBottom: 6 },
   tHeadRow: { flexDirection: 'row', backgroundColor: COLOR_PRIMARY },
-  tRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#dddddd' },
+  tRow:     { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#dddddd' },
   th: {
-    color: '#ffffff',
-    fontSize: 7,
-    fontWeight: 'bold',
-    padding: 3,
-    textAlign: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#ffffff33',
+    color: '#ffffff', fontSize: 7, fontWeight: 'bold', padding: 3,
+    textAlign: 'center', borderRightWidth: 1, borderRightColor: '#ffffff33',
   },
   td: {
-    fontSize: 7.5,
-    padding: 3,
-    textAlign: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#eeeeee',
+    fontSize: 7.5, padding: 3, textAlign: 'center',
+    borderRightWidth: 1, borderRightColor: '#eeeeee',
   },
   subjectCol: { width: '26%', textAlign: 'left' },
-  scoreCol: { width: '8%' },
-  gradeCol: { width: '7%' },
-  posCol: { width: '9%' },
-  remarkCol: { width: '17%', textAlign: 'left' },
-  avgCol: { width: '9%' },
+  scoreCol:   { width: '8%' },
+  gradeCol:   { width: '7%' },
+  posCol:     { width: '9%' },
+  remarkCol:  { width: '17%', textAlign: 'left' },
+  avgCol:     { width: '9%' },
 
   // Side boxes
-  box: { borderWidth: 1, borderColor: '#bbbbbb', marginBottom: 6 },
-  boxTitle: {
-    backgroundColor: COLOR_PRIMARY,
-    color: '#ffffff',
-    fontSize: 8,
-    fontWeight: 'bold',
-    padding: 3,
-    textAlign: 'center',
-  },
-  boxRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 3,
-    borderTopWidth: 1,
-    borderTopColor: '#eeeeee',
-  },
+  box:      { borderWidth: 1, borderColor: '#bbbbbb', marginBottom: 6 },
+  boxTitle: { backgroundColor: COLOR_PRIMARY, color: '#ffffff', fontSize: 8, fontWeight: 'bold', padding: 3, textAlign: 'center' },
+  boxRow:   { flexDirection: 'row', justifyContent: 'space-between', padding: 3, borderTopWidth: 1, borderTopColor: '#eeeeee' },
 
   // Ratings table
   ratingHeaderRow: { flexDirection: 'row', backgroundColor: COLOR_PRIMARY },
-  ratingLabelCol: { width: '60%', color: '#fff', fontSize: 7, fontWeight: 'bold', padding: 3 },
+  ratingLabelCol:  { width: '60%', color: '#fff', fontSize: 7, fontWeight: 'bold', padding: 3 },
   ratingNumCol: {
-    width: '8%',
-    color: '#fff',
-    fontSize: 7,
-    fontWeight: 'bold',
-    padding: 3,
-    textAlign: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: '#ffffff55',
+    width: '8%', color: '#fff', fontSize: 7, fontWeight: 'bold', padding: 3,
+    textAlign: 'center', borderLeftWidth: 1, borderLeftColor: '#ffffff55',
   },
-  ratingRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#eeeeee' },
+  ratingRow:   { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#eeeeee' },
   ratingLabel: { width: '60%', fontSize: 7.5, padding: 3 },
-  ratingCell: {
-    width: '8%',
-    fontSize: 8,
-    padding: 3,
-    textAlign: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: '#eeeeee',
-  },
+  ratingCell:  { width: '8%', fontSize: 8, padding: 3, textAlign: 'center', borderLeftWidth: 1, borderLeftColor: '#eeeeee' },
 
   // Summary
-  summaryBox: { borderWidth: 1, borderColor: '#bbbbbb', marginTop: 4, marginBottom: 6 },
-  summaryTitle: {
-    backgroundColor: COLOR_HEADER_BG,
-    fontSize: 8.5,
-    fontWeight: 'bold',
-    padding: 4,
-    textAlign: 'center',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 3,
-    borderTopWidth: 1,
-    borderTopColor: '#eeeeee',
-  },
+  summaryBox:   { borderWidth: 1, borderColor: '#bbbbbb', marginTop: 4, marginBottom: 6 },
+  summaryTitle: { backgroundColor: COLOR_HEADER_BG, fontSize: 8.5, fontWeight: 'bold', padding: 4, textAlign: 'center' },
+  summaryRow:   { flexDirection: 'row', justifyContent: 'space-between', padding: 3, borderTopWidth: 1, borderTopColor: '#eeeeee' },
 
   // Comments
-  commentBox: { borderWidth: 1, borderColor: '#bbbbbb', padding: 5, marginBottom: 6 },
+  commentBox:   { borderWidth: 1, borderColor: '#bbbbbb', padding: 5, marginBottom: 6 },
   commentLabel: { fontSize: 8, fontWeight: 'bold', marginBottom: 2 },
-  commentText: { fontSize: 8, lineHeight: 1.4, minHeight: 22 },
-  signLine: { textAlign: 'right', fontSize: 7.5, marginTop: 2 },
+  commentText:  { fontSize: 8, lineHeight: 1.4, minHeight: 22 },
+  signLine:     { textAlign: 'right', fontSize: 7.5, marginTop: 2 },
 
   gradeScaleTitle: { fontSize: 8, fontWeight: 'bold', marginBottom: 2, textAlign: 'center' },
-  gradeScaleText: { fontSize: 7, lineHeight: 1.4, textAlign: 'center' },
+  gradeScaleText:  { fontSize: 7, lineHeight: 1.4, textAlign: 'center' },
 
   footer: {
-    position: 'absolute',
-    bottom: 14,
-    left: 24,
-    right: 24,
-    textAlign: 'center',
-    fontSize: 7,
-    color: '#888888',
-    borderTopWidth: 1,
-    borderTopColor: '#eeeeee',
-    paddingTop: 4,
+    position: 'absolute', bottom: 14, left: 24, right: 24,
+    textAlign: 'center', fontSize: 7, color: '#888888',
+    borderTopWidth: 1, borderTopColor: '#eeeeee', paddingTop: 4,
   },
 
   nextTermRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, fontSize: 8 },
@@ -207,23 +136,18 @@ export interface SchoolInfo {
   name: string;
   motto?: string;
   address?: string;
-  /** Base64 data URI populated at call time; leave undefined to render a placeholder. */
+  /** Base64 data URI populated at call time. */
   logoDataUri?: string;
 }
 
 export const DEFAULT_SCHOOL: SchoolInfo = {
-  name: 'CHRIST IS THE ANSWER GROUP OF SCHOOLS',
-  motto: 'Motto: KNOWLEDGE IS FREEDOM',
+  name:    'CHRIST IS THE ANSWER GROUP OF SCHOOLS',
+  motto:   'Motto: KNOWLEDGE IS FREEDOM',
   address: 'Idumegan Quarters, Ekpoma, Edo State.',
 };
 
 const LOGO_PUBLIC_PATH = '/images/Result%20Generation%20System.jpg';
 
-/**
- * Fetches the school logo and converts it to a base64 data URI so that
- * @react-pdf/renderer can embed it without path-resolution issues.
- * Returns undefined on any failure — the PDF still generates without the logo.
- */
 export async function fetchLogoAsDataUri(): Promise<string | undefined> {
   try {
     const response = await fetch(LOGO_PUBLIC_PATH);
@@ -232,7 +156,7 @@ export async function fetchLogoAsDataUri(): Promise<string | undefined> {
     return await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
+      reader.onerror   = reject;
       reader.readAsDataURL(blob);
     });
   } catch {
@@ -245,25 +169,26 @@ export async function fetchLogoAsDataUri(): Promise<string | undefined> {
 const Header = ({ result, school }: { result: Result; school: SchoolInfo }) => (
   <View>
     <View style={styles.headerRow}>
-      {school.logoDataUri ? (
-        <Image style={styles.logo} src={school.logoDataUri} />
-      ) : (
-        <View style={styles.logoPlaceholder} />
-      )}
+      {school.logoDataUri
+        ? <Image style={styles.logo} src={school.logoDataUri} />
+        : <View  style={styles.logoPlaceholder} />
+      }
       <View style={styles.headerCenter}>
         <Text style={styles.schoolName}>{str(school.name)}</Text>
-        {school.motto ? <Text style={styles.motto}>{str(school.motto)}</Text> : null}
+        {school.motto   ? <Text style={styles.motto}      >{str(school.motto)}</Text>   : null}
         {school.address ? <Text style={styles.addressLine}>{str(school.address)}</Text> : null}
       </View>
     </View>
+
     <Text style={styles.reportTitle}>
       {result.resultType === 'Midterm'
         ? 'Mid Term Report'
-        : `${str(result.term)} Term Student's Performance Report`}
+        : str(result.term) + " Term Student's Performance Report"}
     </Text>
+
     {result.resultType === 'Midterm' ? (
       <Text style={styles.reportSubtitle}>
-        {str(result.term).toUpperCase()} TERM (MID TERM) PERFORMANCE REPORT
+        {str(result.term).toUpperCase() + ' TERM (MID TERM) PERFORMANCE REPORT'}
       </Text>
     ) : null}
   </View>
@@ -278,6 +203,8 @@ const StudentInfoBar = ({ result }: { result: Result }) => (
     </View>
     <View style={styles.infoRow}>
       <Text><Text style={styles.infoLabel}>{'Admission No: '}</Text>{str(result.admissionNumber)}</Text>
+      {/* house / club / age are optional — always coerce */}
+      <Text><Text style={styles.infoLabel}>{'Age: '}</Text>{str((result as any).age)}</Text>
       <Text><Text style={styles.infoLabel}>{'House: '}</Text>{str(result.house)}</Text>
       <Text><Text style={styles.infoLabel}>{'Club/Society: '}</Text>{str(result.club)}</Text>
     </View>
@@ -295,15 +222,17 @@ const SubjectsTable = ({ result }: { result: Result }) => (
       <Text style={[styles.th, styles.remarkCol]}>Remark</Text>
       <Text style={[styles.th, styles.avgCol]}>Class Avg</Text>
     </View>
+
     {(result.subjects ?? []).map((s, i) => (
       <View key={i} style={styles.tRow}>
+        {/* Every cell value MUST be a string — numbers crash the renderer */}
         <Text style={[styles.td, styles.subjectCol]}>{str(s.name)}</Text>
         <Text style={[styles.td, styles.scoreCol]}>{str(s.score, '0')}</Text>
         <Text style={[styles.td, styles.scoreCol]}>{str(s.score, '0')}</Text>
         <Text style={[styles.td, styles.gradeCol]}>{str(s.grade)}</Text>
-        <Text style={[styles.td, styles.posCol]}>-</Text>
+        <Text style={[styles.td, styles.posCol]}>{'—'}</Text>
         <Text style={[styles.td, styles.remarkCol]}>{str(s.remark)}</Text>
-        <Text style={[styles.td, styles.avgCol]}>-</Text>
+        <Text style={[styles.td, styles.avgCol]}>{'—'}</Text>
       </View>
     ))}
   </View>
@@ -311,54 +240,68 @@ const SubjectsTable = ({ result }: { result: Result }) => (
 
 const AttendanceBox = ({ result }: { result: Result }) => {
   const a = result.attendance;
-  const pct =
-    a && a.opened > 0 ? `(${((a.present / a.opened) * 100).toFixed(1)}%)` : '';
+  const opened  = a?.opened  ?? 0;
+  const present = a?.present ?? 0;
+  const absent  = a?.absent  ?? 0;
+  const pct = opened > 0
+    ? ' (' + ((present / opened) * 100).toFixed(1) + '%)'
+    : '';
+
   return (
     <View style={styles.box}>
-      <Text style={styles.boxTitle}>Attendance Summary</Text>
+      <Text style={styles.boxTitle}>{'Attendance Summary'}</Text>
       <View style={styles.boxRow}>
-        <Text>Times School Opened</Text>
-        <Text>{str(a?.opened, '—')}</Text>
+        <Text>{'Times School Opened'}</Text>
+        <Text>{str(opened, '—')}</Text>
       </View>
       <View style={styles.boxRow}>
-        <Text>No of Times Present</Text>
-        <Text>{`${str(a?.present, '—')} ${pct}`}</Text>
+        <Text>{'No of Times Present'}</Text>
+        {/* Concatenate in JS — never pass a number as a JSX child */}
+        <Text>{str(present, '—') + pct}</Text>
       </View>
       <View style={styles.boxRow}>
-        <Text>No of Times Absent</Text>
-        <Text>{str(a?.absent, '—')}</Text>
+        <Text>{'No of Times Absent'}</Text>
+        <Text>{str(absent, '—')}</Text>
       </View>
     </View>
   );
 };
 
 const SummaryBox = ({ result }: { result: Result }) => {
-  const subjects = result.subjects ?? [];
-  const totalObtainable = subjects.length * 100;
-  const totalObtained = str(result.totalScore, '0');
-  const avg = result.averageScore != null ? `${result.averageScore.toFixed(1)}%` : '—';
-  const pos = result.position ? getOrdinalSuffix(result.position) : 'N/A';
+  const subjects        = result.subjects ?? [];
+  // All arithmetic → string BEFORE entering JSX
+  const totalObtainable = String(subjects.length * 100);
+  const totalObtained   = str(result.totalScore, '0');
+  const avg             = result.averageScore != null
+    ? result.averageScore.toFixed(1) + '%'
+    : '—';
+  const pos             = result.position ? getOrdinalSuffix(result.position) : 'N/A';
+  const subjectCount    = String(subjects.length);
 
   return (
     <View style={styles.summaryBox}>
       <Text style={styles.summaryTitle}>
-        {result.resultType === 'Midterm' ? 'Mid Term Performance Summary' : 'Performance Summary'}
+        {result.resultType === 'Midterm'
+          ? 'Mid Term Performance Summary'
+          : 'Performance Summary'}
       </Text>
-      <View style={styles.summaryRow}><Text>Total Obtainable</Text><Text>{String(totalObtainable)}</Text></View>
-      <View style={styles.summaryRow}><Text>Total Obtained</Text><Text>{totalObtained}</Text></View>
-      <View style={styles.summaryRow}><Text>Total Subjects Offered</Text><Text>{String(subjects.length)}</Text></View>
-      <View style={styles.summaryRow}><Text>%TAGE</Text><Text>{avg}</Text></View>
-      <View style={styles.summaryRow}><Text>Grade</Text><Text>{str(result.overallGrade)}</Text></View>
-      <View style={styles.summaryRow}><Text>Position</Text><Text>{pos}</Text></View>
+      <View style={styles.summaryRow}><Text>{'Total Obtainable'}</Text><Text>{totalObtainable}</Text></View>
+      <View style={styles.summaryRow}><Text>{'Total Obtained'}</Text><Text>{totalObtained}</Text></View>
+      <View style={styles.summaryRow}><Text>{'Total Subjects Offered'}</Text><Text>{subjectCount}</Text></View>
+      <View style={styles.summaryRow}><Text>{'%TAGE'}</Text><Text>{avg}</Text></View>
+      <View style={styles.summaryRow}><Text>{'Grade'}</Text><Text>{str(result.overallGrade)}</Text></View>
+      <View style={styles.summaryRow}><Text>{'Position'}</Text><Text>{pos}</Text></View>
     </View>
   );
 };
 
 const GradeScale = () => (
   <View style={styles.box}>
-    <Text style={styles.gradeScaleTitle}>Grading Scale</Text>
+    <Text style={styles.gradeScaleTitle}>{'Grading Scale'}</Text>
     <Text style={styles.gradeScaleText}>
-      {GRADING_SCALE.map(g => `${g.grade} (${g.min}-${g.max}%): ${g.remark}`).join('  |  ')}
+      {GRADING_SCALE
+        .map(g => `${g.grade} (${g.min}-${g.max}%): ${g.remark}`)
+        .join('  |  ')}
     </Text>
   </View>
 );
@@ -368,24 +311,29 @@ const RatingTable = ({
   labels,
   ratings,
 }: {
-  title: string;
-  labels: readonly string[];
+  title:   string;
+  labels:  readonly string[];
   ratings?: Record<string, number>;
 }) => (
   <View style={styles.box}>
     <View style={styles.ratingHeaderRow}>
-      <Text style={styles.ratingLabelCol}>{title}</Text>
+      <Text style={styles.ratingLabelCol}>{str(title)}</Text>
       {[5, 4, 3, 2, 1].map(n => (
         <Text key={n} style={styles.ratingNumCol}>{String(n)}</Text>
       ))}
     </View>
+
     {labels.map(label => {
+      // value may be undefined if ratings is absent — default to 0
       const value = ratings?.[label] ?? 0;
       return (
         <View key={label} style={styles.ratingRow}>
-          <Text style={styles.ratingLabel}>{label}</Text>
+          <Text style={styles.ratingLabel}>{str(label)}</Text>
           {[5, 4, 3, 2, 1].map(n => (
-            <Text key={n} style={styles.ratingCell}>{value === n ? '\u2713' : ' '}</Text>
+            // Ternary result is always a string literal — safe
+            <Text key={n} style={styles.ratingCell}>
+              {value === n ? '\u2713' : ' '}
+            </Text>
           ))}
         </View>
       );
@@ -395,10 +343,10 @@ const RatingTable = ({
 
 const RatingLegend = () => (
   <View style={styles.box}>
-    <Text style={styles.boxTitle}>Rating Indices</Text>
+    <Text style={styles.boxTitle}>{'Rating Indices'}</Text>
     <View style={{ padding: 4 }}>
       {RATING_SCALE_NOTES.map((line, i) => (
-        <Text key={i} style={{ fontSize: 6.5, lineHeight: 1.4 }}>{line}</Text>
+        <Text key={i} style={{ fontSize: 6.5, lineHeight: 1.4 }}>{str(line)}</Text>
       ))}
     </View>
   </View>
@@ -407,23 +355,33 @@ const RatingLegend = () => (
 const Comments = ({ result }: { result: Result }) => (
   <View>
     <View style={styles.commentBox}>
-      <Text style={styles.commentLabel}>Class Teacher's Remark</Text>
+      <Text style={styles.commentLabel}>{"Class Teacher's Remark"}</Text>
       <Text style={styles.commentText}>{str(result.teacherComment)}</Text>
-      <Text style={styles.signLine}>Sign: ______________________</Text>
+      <Text style={styles.signLine}>{'Sign: ______________________'}</Text>
     </View>
     <View style={styles.commentBox}>
-      <Text style={styles.commentLabel}>Principal's Remark</Text>
+      <Text style={styles.commentLabel}>{"Principal's Remark"}</Text>
       <Text style={styles.commentText}>{str(result.principalComment)}</Text>
-      <Text style={styles.signLine}>Sign: ______________________</Text>
+      <Text style={styles.signLine}>{'Sign: ______________________'}</Text>
     </View>
   </View>
 );
 
-const Footer = ({ school }: { school: SchoolInfo }) => (
-  <View style={styles.footer}>
-    <Text>{`${str(school.name)} \u00A9 ${new Date().getFullYear()} \u2022 Generated on ${new Date().toLocaleDateString()}`}</Text>
-  </View>
-);
+const Footer = ({ school }: { school: SchoolInfo }) => {
+  // Build entire footer string in JS — never rely on JSX interpolation for numbers
+  const footerText =
+    str(school.name) +
+    ' \u00A9 ' +
+    String(new Date().getFullYear()) +
+    ' \u2022 Generated on ' +
+    new Date().toLocaleDateString();
+
+  return (
+    <View style={styles.footer}>
+      <Text>{footerText}</Text>
+    </View>
+  );
+};
 
 // ─── Main document ────────────────────────────────────────────────────────────
 
@@ -470,7 +428,9 @@ export const ResultPDFDocument = ({
       <Comments result={result} />
 
       <View style={styles.nextTermRow}>
-        <Text>{`Next ${result.term === 'Third' ? 'Session' : 'Term'} Begins: ____________________`}</Text>
+        <Text>
+          {`Next ${result.term === 'Third' ? 'Session' : 'Term'} Begins: ____________________`}
+        </Text>
         <Text>{`Date: ${new Date().toLocaleDateString()}`}</Text>
       </View>
 
@@ -482,12 +442,12 @@ export const ResultPDFDocument = ({
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export const generateResultPDF = async (
-  result: Result,
+  result:  Result,
   school?: SchoolInfo,
 ): Promise<Blob> => {
   const { pdf } = await import('@react-pdf/renderer');
 
-  const logoDataUri = await fetchLogoAsDataUri();
+  const logoDataUri    = await fetchLogoAsDataUri();
   const resolvedSchool: SchoolInfo = {
     ...(school ?? DEFAULT_SCHOOL),
     logoDataUri,
@@ -499,13 +459,13 @@ export const generateResultPDF = async (
 };
 
 export const downloadResultPDF = async (
-  result: Result,
+  result:  Result,
   school?: SchoolInfo,
 ): Promise<void> => {
   const { downloadPDF } = await import('@/lib/export');
-  const blob = await generateResultPDF(result, school);
-  const safeName = result.studentName.replace(/\s+/g, '_');
-  const safeSession = result.session.replace(/\//g, '-');
-  const filename = `${safeName}_${result.term}_${result.resultType}_${safeSession}.pdf`;
+  const blob      = await generateResultPDF(result, school);
+  const safeName  = result.studentName.replace(/\s+/g, '_');
+  const safeSess  = result.session.replace(/\//g, '-');
+  const filename  = `${safeName}_${result.term}_${result.resultType}_${safeSess}.pdf`;
   downloadPDF(blob, filename);
 };
