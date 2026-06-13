@@ -442,19 +442,35 @@ export const ResultPDFDocument = ({
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export const generateResultPDF = async (
-  result:  Result,
+  result: Result,
   school?: SchoolInfo,
 ): Promise<Blob> => {
   const { pdf } = await import('@react-pdf/renderer');
 
-  const logoDataUri    = await fetchLogoAsDataUri();
+  // Defensive normalization to prevent react-pdf "hasOwnProperty" crashes
+  // when older cached results have missing/partial subject fields.
+  const safeResult: Result = {
+    ...result,
+    subjects: (result.subjects ?? []).filter(Boolean).map(s => ({
+      name: s?.name ?? 'Subject',
+      score: typeof s?.score === 'number' ? s.score : 0,
+      grade: s?.grade ?? '',
+      remark: s?.remark ?? '',
+    })),
+    attendance: result.attendance ?? { opened: 0, present: 0, absent: 0 },
+    affectiveDomain: result.affectiveDomain ?? {},
+    psychomotorSkills: result.psychomotorSkills ?? {},
+    age: result.age ?? '',
+  };
+
+  const logoDataUri = await fetchLogoAsDataUri();
   const resolvedSchool: SchoolInfo = {
     ...(school ?? DEFAULT_SCHOOL),
     logoDataUri,
   };
 
   return pdf(
-    <ResultPDFDocument result={result} school={resolvedSchool} />
+    <ResultPDFDocument result={safeResult} school={resolvedSchool} />
   ).toBlob();
 };
 
