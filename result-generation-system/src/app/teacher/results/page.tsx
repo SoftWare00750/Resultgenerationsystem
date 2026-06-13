@@ -258,7 +258,6 @@ export default function TeacherResultsPage() {
         studentName:     selectedStudent.name,
         admissionNumber: selectedStudent.admissionNumber,
         class:           selectedStudent.class,
-        gender:          selectedStudent.gender,
         dateOfBirth:     selectedStudent.dateOfBirth,
         age:             formData.age,
         term:            formData.term,
@@ -696,41 +695,20 @@ export default function TeacherResultsPage() {
                         </TableCell>
                         <TableCell>{r.position ? getOrdinalSuffix(r.position) : 'N/A'}</TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                            r.published ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                          }`}>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.published ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
                             {r.published ? 'Published' : 'Draft'}
                           </span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost" size="sm"
-                              title="Download PDF"
-                              disabled={downloading === r.$id}
-                              onClick={() => handleDownload(r)}
-                            >
-                              {downloading === r.$id
-                                ? <RefreshCw className="h-4 w-4 animate-spin" />
-                                : <Download className="h-4 w-4" />
-                              }
+                            <Button variant="ghost" size="icon" title={r.published ? "Unpublish" : "Publish"} onClick={() => handlePublishToggle(r)}>
+                              {r.published ? <EyeOff className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
                             </Button>
-                            <Button
-                              variant="ghost" size="sm"
-                              title={r.published ? 'Unpublish' : 'Publish'}
-                              onClick={() => handlePublishToggle(r)}
-                            >
-                              {r.published
-                                ? <EyeOff className="h-4 w-4" />
-                                : <Globe className="h-4 w-4" />
-                              }
+                            <Button variant="ghost" size="icon" title="Download PDF" disabled={downloading === r.$id} onClick={() => handleDownload(r)}>
+                              <Download className={`h-4 w-4 ${downloading === r.$id ? 'animate-bounce' : ''}`} />
                             </Button>
-                            <Button
-                              variant="ghost" size="sm"
-                              title="Delete"
-                              onClick={() => { setSelectedResult(r); setDeleteDialogOpen(true); }}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Delete" onClick={() => { setSelectedResult(r); setDeleteDialogOpen(true); }}>
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -744,19 +722,18 @@ export default function TeacherResultsPage() {
         </Card>
       </div>
 
-      {/* ── Delete confirmation ── */}
+      {/* ── Delete Confirmation AlertDialog ── */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this result?</AlertDialogTitle>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the result for{' '}
-              <span className="font-semibold">{selectedResult?.studentName}</span>. Cannot be undone.
+              This action cannot be undone. This will permanently delete the result record for {selectedResult?.studentName}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogCancel onClick={() => setSelectedResult(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/95">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
