@@ -5,13 +5,7 @@ import { getStore, setStore, KEYS } from '../storage';
 export const resultsService = {
   calculateGrade(score: number): { grade: string; remark: string } {
     const g = GRADING_SCALE.find(g => score >= g.min && score <= g.max);
-    return g ? { grade: g.grade, remark: g.remark } : { grade: 'F', remark: 'Fail' };
-  },
-
-  calculatePosition(results: Result[], studentId: string): number {
-    const sorted = [...results].sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0));
-    const idx = sorted.findIndex(r => r.studentId === studentId);
-    return idx === -1 ? 1 : idx + 1;
+    return g ? { grade: g.grade, remark: g.remark } : { grade: 'F9', remark: 'Fail' };
   },
 
   async createResult(data: Omit<Result, '$id' | 'createdAt' | 'updatedAt'>): Promise<Result> {
@@ -19,12 +13,6 @@ export const resultsService = {
     const totalScore = subjects.reduce((sum, s) => sum + (s.score || 0), 0);
     const averageScore = subjects.length > 0 ? totalScore / subjects.length : 0;
     const { grade } = this.calculateGrade(averageScore);
-
-    const allResults = getStore<Result>(KEYS.results);
-    // Calculate position among class results for same term/session
-    const classResults = allResults.filter(
-      r => r.class === data.class && r.term === data.term && r.session === data.session && r.resultType === data.resultType
-    );
 
     const newResult: Result = {
       ...data,
@@ -38,18 +26,20 @@ export const resultsService = {
       updatedAt: new Date().toISOString(),
     };
 
+    const allResults = getStore<Result>(KEYS.results);
     allResults.unshift(newResult);
     setStore(KEYS.results, allResults);
 
-    // Recalculate positions for all in same class/term/session
     this._recalcPositions(data.class, data.term, data.session, data.resultType);
-
     return getStore<Result>(KEYS.results).find(r => r.$id === newResult.$id)!;
   },
 
   _recalcPositions(className: string, term: string, session: string, resultType: string) {
     const all = getStore<Result>(KEYS.results);
-    const group = all.filter(r => r.class === className && r.term === term && r.session === session && r.resultType === resultType);
+    const group = all.filter(
+      r => r.class === className && r.term === term &&
+           r.session === session && r.resultType === resultType
+    );
     const sorted = [...group].sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0));
     sorted.forEach((r, i) => {
       const idx = all.findIndex(x => x.$id === r.$id);
@@ -62,7 +52,6 @@ export const resultsService = {
     const all = getStore<Result>(KEYS.results);
     const idx = all.findIndex(r => r.$id === resultId);
     if (idx === -1) throw new Error('Result not found');
-
     let updated = { ...all[idx], ...data, updatedAt: new Date().toISOString() };
     if (data.subjects) {
       const subjects = data.subjects;
@@ -90,7 +79,7 @@ export const resultsService = {
 
   async getResultsByClass(className: string, term?: string, session?: string): Promise<Result[]> {
     let results = getStore<Result>(KEYS.results).filter(r => r.class === className);
-    if (term) results = results.filter(r => r.term === term);
+    if (term)    results = results.filter(r => r.term === term);
     if (session) results = results.filter(r => r.session === session);
     return results;
   },
