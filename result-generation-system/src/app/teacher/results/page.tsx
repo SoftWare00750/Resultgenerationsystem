@@ -253,12 +253,11 @@ export default function TeacherResultsPage() {
 
     setSaving(true);
     try {
-      await resultsService.createResult({
+     await resultsService.createResult({
         studentId:       selectedStudent.$id,
         studentName:     selectedStudent.name,
         admissionNumber: selectedStudent.admissionNumber,
         class:           selectedStudent.class,
-        age:             formData.age,
         term:            formData.term,
         session:         activeSession.year,
         resultType:      formData.resultType,
