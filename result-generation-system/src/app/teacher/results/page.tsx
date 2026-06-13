@@ -258,7 +258,6 @@ export default function TeacherResultsPage() {
         studentName:     selectedStudent.name,
         admissionNumber: selectedStudent.admissionNumber,
         class:           selectedStudent.class,
-        dateOfBirth:     selectedStudent.dateOfBirth,
         age:             formData.age,
         term:            formData.term,
         session:         activeSession.year,
@@ -695,19 +694,19 @@ export default function TeacherResultsPage() {
                         </TableCell>
                         <TableCell>{r.position ? getOrdinalSuffix(r.position) : 'N/A'}</TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.published ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.published ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
                             {r.published ? 'Published' : 'Draft'}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" title={r.published ? "Unpublish" : "Publish"} onClick={() => handlePublishToggle(r)}>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handlePublishToggle(r)}>
                               {r.published ? <EyeOff className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
                             </Button>
-                            <Button variant="ghost" size="icon" title="Download PDF" disabled={downloading === r.$id} onClick={() => handleDownload(r)}>
-                              <Download className={`h-4 w-4 ${downloading === r.$id ? 'animate-bounce' : ''}`} />
+                            <Button variant="ghost" size="icon" onClick={() => handleDownload(r)} disabled={downloading === r.$id}>
+                              <Download className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Delete" onClick={() => { setSelectedResult(r); setDeleteDialogOpen(true); }}>
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { setSelectedResult(r); setDeleteDialogOpen(true); }}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -722,20 +721,18 @@ export default function TeacherResultsPage() {
         </Card>
       </div>
 
-      {/* ── Delete Confirmation AlertDialog ── */}
+      {/* Delete confirmation dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the result record for {selectedResult?.studentName}.
+              This action cannot be undone. This will permanently delete the result records for this student.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedResult(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/95">
-              Delete
-            </AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDeleteConfirm}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
