@@ -252,8 +252,14 @@ export default function TeacherResultsPage() {
     if (!subjects.length) { toast.error('Add at least one subject'); return; }
 
     setSaving(true);
+
+    // Dynamically calculate averages and grades to prevent crashes during PDF generation
+    const calculatedTotalScore = subjects.reduce((s, sub) => s + (sub.score || 0), 0);
+    const calculatedAvgScore = subjects.length > 0 ? calculatedTotalScore / subjects.length : 0;
+    const overallGradeInfo = resultsService.calculateGrade(calculatedAvgScore);
+
     try {
-     await resultsService.createResult({
+      await resultsService.createResult({
         studentId:       selectedStudent.$id,
         studentName:     selectedStudent.name,
         admissionNumber: selectedStudent.admissionNumber,
@@ -262,6 +268,9 @@ export default function TeacherResultsPage() {
         session:         activeSession.year,
         resultType:      formData.resultType,
         subjects,
+        totalScore:      calculatedTotalScore,
+        averageScore:    calculatedAvgScore,
+        overallGrade:    overallGradeInfo.grade,
         teacherComment:  formData.teacherComment,
         principalComment: formData.principalComment,
         published:       false,
@@ -271,6 +280,7 @@ export default function TeacherResultsPage() {
         psychomotorSkills: psychomotor,
         house:           formData.house,
         club:            formData.club,
+        age:             formData.age,
       });
       toast.success('Result saved successfully');
       setDialogOpen(false);
@@ -331,6 +341,7 @@ export default function TeacherResultsPage() {
       await downloadResultPDF(result);
       toast.success('PDF downloaded');
     } catch (e: any) {
+      console.error("PDF Generation Error Details:", e);
       toast.error(e.message || 'Failed to generate PDF');
     } finally {
       setDownloading(null);
