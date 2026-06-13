@@ -1,4 +1,6 @@
 // PDF Result Generator
+// Fix: logo is fetched as base64 at call time so @react-pdf/renderer can embed it;
+//      falls back gracefully when the image is unavailable.
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { Result, AFFECTIVE_TRAITS, PSYCHOMOTOR_SKILLS, RATING_SCALE_NOTES, GRADING_SCALE } from '@/lib/types';
 import { getOrdinalSuffix } from '@/lib/utils';
@@ -42,12 +44,12 @@ const styles = StyleSheet.create({
   remarkCol: { width: '17%', textAlign: 'left' },
   avgCol: { width: '9%' },
 
-  // Side boxes (attendance / grade analysis / scale)
+  // Side boxes
   box: { borderWidth: 1, borderColor: '#bbbbbb', marginBottom: 6 },
   boxTitle: { backgroundColor: COLOR_PRIMARY, color: '#ffffff', fontSize: 8, fontWeight: 'bold', padding: 3, textAlign: 'center' },
   boxRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 3, borderTopWidth: 1, borderTopColor: '#eeeeee' },
 
-  // Ratings table (affective / psychomotor)
+  // Ratings table
   ratingHeaderRow: { flexDirection: 'row', backgroundColor: COLOR_PRIMARY },
   ratingLabelCol: { width: '60%', color: '#fff', fontSize: 7, fontWeight: 'bold', padding: 3 },
   ratingNumCol: { width: '8%', color: '#fff', fontSize: 7, fontWeight: 'bold', padding: 3, textAlign: 'center', borderLeftWidth: 1, borderLeftColor: '#ffffff55' },
@@ -72,36 +74,60 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 14, left: 24, right: 24, textAlign: 'center', fontSize: 7, color: '#888888', borderTopWidth: 1, borderTopColor: '#eeeeee', paddingTop: 4 },
 
   nextTermRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, fontSize: 8 },
+
+  // Placeholder when logo cannot be loaded
+  logoPlaceholder: { width: 50, height: 50, marginRight: 10, backgroundColor: '#e5e5e5', borderRadius: 4 },
 });
 
 export interface SchoolInfo {
   name: string;
   motto?: string;
   address?: string;
-  logoUrl?: string;
+  /** Pass a base64 data URI (data:image/...;base64,...) or leave undefined to skip the logo. */
+  logoDataUri?: string;
 }
 
 export const DEFAULT_SCHOOL: SchoolInfo = {
   name: 'CHRIST IS THE ANSWER GROUP OF SCHOOLS',
   motto: 'Motto: KNOWLEDGE IS FREEDOM',
   address: 'Idumegan Quarters, Ekpoma, Edo State.',
-  logoUrl: '/images/Result Generation System.jpg',
+  // logoDataUri is populated at call time by fetchLogoAsDataUri()
 };
 
-interface ResultPDFDocumentProps {
-  result: Result;
-  school?: SchoolInfo;
-  studentPhotoUrl?: string;
+/** Path of the logo relative to the public root. */
+const LOGO_PUBLIC_PATH = '/images/Result%20Generation%20System.jpg';
+
+/**
+ * Fetches the logo image and converts it to a base64 data URI so that
+ * @react-pdf/renderer can embed it without CORS or path-resolution issues.
+ * Returns undefined if the image cannot be loaded (network error, 404, etc.).
+ */
+export async function fetchLogoAsDataUri(): Promise<string | undefined> {
+  try {
+    const response = await fetch(LOGO_PUBLIC_PATH);
+    if (!response.ok) return undefined;
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return undefined;
+  }
 }
 
-// ----------------------------------------------------------------------------
-// Shared sub-components
-// ----------------------------------------------------------------------------
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 const Header = ({ result, school }: { result: Result; school: SchoolInfo }) => (
   <View>
     <View style={styles.headerRow}>
-      {school.logoUrl ? <Image style={styles.logo} src={school.logoUrl} /> : <View style={styles.logo} />}
+      {school.logoDataUri ? (
+        <Image style={styles.logo} src={school.logoDataUri} />
+      ) : (
+        <View style={styles.logoPlaceholder} />
+      )}
       <View style={styles.headerCenter}>
         <Text style={styles.schoolName}>{school.name}</Text>
         {school.motto && <Text style={styles.motto}>{school.motto}</Text>}
@@ -180,14 +206,14 @@ const SummaryBox = ({ result }: { result: Result }) => (
     <Text style={styles.summaryTitle}>
       {result.resultType === 'Midterm' ? 'Mid Term Performance Summary' : 'Performance Summary'}
     </Text>
-    <View style={styles.summaryRow}><Text>Total Obtainable</Text><Text>{(result.subjects.length * 100)}</Text></View>
+    <View style={styles.summaryRow}><Text>Total Obtainable</Text><Text>{result.subjects.length * 100}</Text></View>
     <View style={styles.summaryRow}><Text>Total Obtained</Text><Text>{result.totalScore}</Text></View>
     <View style={styles.summaryRow}><Text>Total Subjects Offered</Text><Text>{result.subjects.length}</Text></View>
     <View style={styles.summaryRow}><Text>%TAGE</Text><Text>{result.averageScore?.toFixed(1)}%</Text></View>
     <View style={styles.summaryRow}><Text>Grade</Text><Text>{result.overallGrade}</Text></View>
     <View style={styles.summaryRow}>
       <Text>Position</Text>
-      <Text>{result.position ? `${getOrdinalSuffix(result.position)}` : 'N/A'}</Text>
+      <Text>{result.position ? getOrdinalSuffix(result.position) : 'N/A'}</Text>
     </View>
   </View>
 );
@@ -263,17 +289,18 @@ const Footer = ({ school }: { school: SchoolInfo }) => (
   </View>
 );
 
-// ----------------------------------------------------------------------------
-// Main document — single layout serves both Midterm and Examination,
-// content adapts based on result.resultType
-// ----------------------------------------------------------------------------
+// ─── Main document ────────────────────────────────────────────────────────────
 
-export const ResultPDFDocument = ({ result, school = DEFAULT_SCHOOL, studentPhotoUrl }: ResultPDFDocumentProps) => (
+interface ResultPDFDocumentProps {
+  result: Result;
+  school?: SchoolInfo;
+}
+
+export const ResultPDFDocument = ({ result, school = DEFAULT_SCHOOL }: ResultPDFDocumentProps) => (
   <Document>
     <Page size="A4" style={styles.page}>
       <Header result={result} school={school} />
       <StudentInfoBar result={result} />
-
       <SubjectsTable result={result} />
 
       <View style={styles.twoCol}>
@@ -305,18 +332,29 @@ export const ResultPDFDocument = ({ result, school = DEFAULT_SCHOOL, studentPhot
   </Document>
 );
 
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 export const generateResultPDF = async (
   result: Result,
   school?: SchoolInfo,
-  studentPhotoUrl?: string
 ): Promise<Blob> => {
   const { pdf } = await import('@react-pdf/renderer');
-  return await pdf(
-    <ResultPDFDocument result={result} school={school} studentPhotoUrl={studentPhotoUrl} />
+
+  // Resolve the school info, fetching the logo as base64 so the renderer can embed it
+  const logoDataUri = await fetchLogoAsDataUri();
+  const resolvedSchool: SchoolInfo = {
+    ...(school ?? DEFAULT_SCHOOL),
+    logoDataUri,
+  };
+
+  const blob = await pdf(
+    <ResultPDFDocument result={result} school={resolvedSchool} />
   ).toBlob();
+
+  return blob;
 };
 
-export const downloadResultPDF = async (result: Result, school?: SchoolInfo) => {
+export const downloadResultPDF = async (result: Result, school?: SchoolInfo): Promise<void> => {
   const { downloadPDF } = await import('@/lib/export');
   const blob = await generateResultPDF(result, school);
   const filename = `${result.studentName.replace(/\s+/g, '_')}_${result.term}_${result.resultType}_${result.session.replace(/\//g, '-')}.pdf`;
