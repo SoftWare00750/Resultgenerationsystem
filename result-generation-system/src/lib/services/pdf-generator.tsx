@@ -21,6 +21,7 @@ import {
   PSYCHOMOTOR_SKILLS,
   RATING_SCALE_NOTES,
   GRADING_SCALE,
+  Subject,
 } from '@/lib/types';
 import { getOrdinalSuffix } from '@/lib/utils';
 
@@ -476,14 +477,13 @@ export const generateResultPDF = async (
   // Deep-sanitize the result object so no numeric/null/undefined value
   // can leak into a <Text> child inside the document tree.
   const safeSubjects = (result.subjects ?? [])
-    .filter(Boolean)
-    .map(s => ({
-      name:   typeof s?.name  === 'string' ? s.name  : 'Subject',
-      // Ensure score is always a number (never undefined/null/string)
-      score:  typeof s?.score === 'number' ? s.score : (parseFloat(String(s?.score)) || 0),
-      grade:  typeof s?.grade  === 'string' ? s.grade  : '',
-      remark: typeof s?.remark === 'string' ? s.remark : '',
-    }));
+  .filter((s): s is Subject => !!s && typeof s === 'object')
+  .map(s => ({
+    name:   typeof s.name  === 'string' ? s.name  : 'Subject',
+    score:  typeof s.score === 'number' ? s.score : (parseFloat(String(s.score)) || 0),
+    grade:  typeof s.grade  === 'string' ? s.grade  : '',
+    remark: typeof s.remark === 'string' ? s.remark : '',
+  }));
 
   const safeResult: Result = {
     ...result,
@@ -502,14 +502,21 @@ export const generateResultPDF = async (
     psychomotorSkills: result.psychomotorSkills ?? {},
   };
 
-  const logoDataUri = await fetchLogoAsDataUri();
+ const logoDataUri = await fetchLogoAsDataUri();
   const resolvedSchool: SchoolInfo = {
     ...(school ?? DEFAULT_SCHOOL),
     logoDataUri,
   };
 
+  // Deep-clone to strip any non-plain-object values (Date instances,
+  // prototypes, undefined-in-arrays, etc.) that can trigger
+  // "Cannot read properties of undefined (reading 'hasOwnProperty')"
+  // inside react-pdf's Yoga layout engine.
+  const cleanResult: Result = JSON.parse(JSON.stringify(safeResult));
+  const cleanSchool: SchoolInfo = JSON.parse(JSON.stringify(resolvedSchool));
+
   return pdf(
-    <ResultPDFDocument result={safeResult} school={resolvedSchool} />
+    <ResultPDFDocument result={cleanResult} school={cleanSchool} />
   ).toBlob();
 };
 
