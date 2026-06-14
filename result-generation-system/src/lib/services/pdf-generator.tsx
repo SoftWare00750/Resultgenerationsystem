@@ -1,533 +1,547 @@
-// PDF Result Generator — FULLY FIXED
-// Root cause of "Cannot read properties of undefined (reading 'hasOwnProperty')":
-//   @react-pdf/renderer internally calls .hasOwnProperty() on every child node.
-//   If ANY child is a raw number, boolean, null, or undefined, it crashes.
-//   Fix: every value that enters <Text>…</Text> MUST be converted to a string
-//   BEFORE reaching JSX. We also guard against undefined/null objects
-//   throughout the component tree.
+/**
+ * pdf-generator.tsx
+ *
+ * Pure jsPDF-based result sheet generator.
+ * Zero dependency on @react-pdf/renderer — avoids the
+ * "Cannot read properties of undefined (reading 'hasOwnProperty')" crash.
+ *
+ * DROP THIS FILE INTO:  src/lib/services/pdf-generator.tsx
+ *
+ * Usage (unchanged from before):
+ *   import { downloadResultPDF } from "@/lib/services/pdf-generator";
+ *   await downloadResultPDF(result);
+ *
+ * Also exports generateResultPDF(result) → Promise<Blob>
+ */
 
-import React from 'react';
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  Image,
-} from '@react-pdf/renderer';
-import {
-  Result,
-  AFFECTIVE_TRAITS,
-  PSYCHOMOTOR_SKILLS,
-  RATING_SCALE_NOTES,
-  GRADING_SCALE,
-  Subject,
-} from '@/lib/types';
-import { getOrdinalSuffix } from '@/lib/utils';
+import { Result, GRADING_SCALE, AFFECTIVE_TRAITS, PSYCHOMOTOR_SKILLS, RATING_SCALE_NOTES } from "@/lib/types";
 
-// ─── Safe string coercer ──────────────────────────────────────────────────────
-// NEVER pass the raw value as a JSX child — always call str() first.
-const str = (v: unknown, fallback = '—'): string => {
+// ─── tiny helpers ─────────────────────────────────────────────────────────────
+
+/** Always returns a trimmed string, never null / undefined / number leaking */
+const s = (v: unknown, fallback = "—"): string => {
   if (v === null || v === undefined) return fallback;
-  const s = String(v).trim();
-  return s === '' ? fallback : s;
+  const out = String(v).trim();
+  return out === "" ? fallback : out;
 };
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const COLOR_PRIMARY   = '#1f3d2e';
-const COLOR_HEADER_BG = '#f3d9b1';
+function ordinal(n: number): string {
+  const sfx = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (sfx[(v - 20) % 10] || sfx[v] || sfx[0]);
+}
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  page: { padding: 24, backgroundColor: '#ffffff', fontSize: 8.5 },
+// ─── school defaults ──────────────────────────────────────────────────────────
 
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: COLOR_PRIMARY,
-    paddingBottom: 6,
-    marginBottom: 6,
-  },
-  logo:            { width: 50, height: 50, marginRight: 10 },
-  logoPlaceholder: { width: 50, height: 50, marginRight: 10, backgroundColor: '#e5e5e5' },
-  headerCenter:    { flex: 1, alignItems: 'center' },
-  schoolName:      { fontSize: 16, fontWeight: 'bold', color: COLOR_PRIMARY, textAlign: 'center' },
-  motto:           { fontSize: 8, textAlign: 'center', marginTop: 1 },
-  addressLine:     { fontSize: 7, textAlign: 'center', color: '#444444', marginTop: 1 },
-  reportTitle:     { fontSize: 12, fontWeight: 'bold', textAlign: 'center', marginTop: 6, textTransform: 'uppercase' },
-  reportSubtitle:  { fontSize: 9, fontWeight: 'bold', textAlign: 'center', marginTop: 2, textTransform: 'uppercase', color: COLOR_PRIMARY },
-
-  infoBar:   { borderWidth: 1, borderColor: '#cccccc', padding: 5, marginTop: 6, marginBottom: 6 },
-  infoRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
-  infoLabel: { fontWeight: 'bold' },
-
-  twoCol:  { flexDirection: 'row' },
-  colLeft: { flex: 2, marginRight: 8 },
-  colRight:{ flex: 1 },
-
-  table:    { borderWidth: 1, borderColor: '#bbbbbb', marginBottom: 6 },
-  tHeadRow: { flexDirection: 'row', backgroundColor: COLOR_PRIMARY },
-  tRow:     { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#dddddd' },
-  th: {
-    color: '#ffffff', fontSize: 7, fontWeight: 'bold', padding: 3,
-    textAlign: 'center', borderRightWidth: 1, borderRightColor: '#ffffff33',
-  },
-  td: {
-    fontSize: 7.5, padding: 3, textAlign: 'center',
-    borderRightWidth: 1, borderRightColor: '#eeeeee',
-  },
-  subjectCol: { width: '26%', textAlign: 'left' },
-  scoreCol:   { width: '8%' },
-  gradeCol:   { width: '7%' },
-  posCol:     { width: '9%' },
-  remarkCol:  { width: '17%', textAlign: 'left' },
-  avgCol:     { width: '9%' },
-
-  box:      { borderWidth: 1, borderColor: '#bbbbbb', marginBottom: 6 },
-  boxTitle: { backgroundColor: COLOR_PRIMARY, color: '#ffffff', fontSize: 8, fontWeight: 'bold', padding: 3, textAlign: 'center' },
-  boxRow:   { flexDirection: 'row', justifyContent: 'space-between', padding: 3, borderTopWidth: 1, borderTopColor: '#eeeeee' },
-
-  ratingHeaderRow: { flexDirection: 'row', backgroundColor: COLOR_PRIMARY },
-  ratingLabelCol:  { width: '60%', color: '#fff', fontSize: 7, fontWeight: 'bold', padding: 3 },
-  ratingNumCol: {
-    width: '8%', color: '#fff', fontSize: 7, fontWeight: 'bold', padding: 3,
-    textAlign: 'center', borderLeftWidth: 1, borderLeftColor: '#ffffff55',
-  },
-  ratingRow:   { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#eeeeee' },
-  ratingLabel: { width: '60%', fontSize: 7.5, padding: 3 },
-  ratingCell:  { width: '8%', fontSize: 8, padding: 3, textAlign: 'center', borderLeftWidth: 1, borderLeftColor: '#eeeeee' },
-
-  summaryBox:   { borderWidth: 1, borderColor: '#bbbbbb', marginTop: 4, marginBottom: 6 },
-  summaryTitle: { backgroundColor: COLOR_HEADER_BG, fontSize: 8.5, fontWeight: 'bold', padding: 4, textAlign: 'center' },
-  summaryRow:   { flexDirection: 'row', justifyContent: 'space-between', padding: 3, borderTopWidth: 1, borderTopColor: '#eeeeee' },
-
-  commentBox:   { borderWidth: 1, borderColor: '#bbbbbb', padding: 5, marginBottom: 6 },
-  commentLabel: { fontSize: 8, fontWeight: 'bold', marginBottom: 2 },
-  commentText:  { fontSize: 8, lineHeight: 1.4, minHeight: 22 },
-  signLine:     { textAlign: 'right', fontSize: 7.5, marginTop: 2 },
-
-  gradeScaleTitle: { fontSize: 8, fontWeight: 'bold', marginBottom: 2, textAlign: 'center' },
-  gradeScaleText:  { fontSize: 7, lineHeight: 1.4, textAlign: 'center' },
-
-  footer: {
-    position: 'absolute', bottom: 14, left: 24, right: 24,
-    textAlign: 'center', fontSize: 7, color: '#888888',
-    borderTopWidth: 1, borderTopColor: '#eeeeee', paddingTop: 4,
-  },
-
-  nextTermRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, fontSize: 8 },
-});
-
-// ─── School info ──────────────────────────────────────────────────────────────
 export interface SchoolInfo {
   name: string;
   motto?: string;
   address?: string;
-  logoDataUri?: string;
 }
 
 export const DEFAULT_SCHOOL: SchoolInfo = {
-  name:    'CHRIST IS THE ANSWER GROUP OF SCHOOLS',
-  motto:   'Motto: KNOWLEDGE IS FREEDOM',
-  address: 'Idumegan Quarters, Ekpoma, Edo State.',
+  name:    "CHRIST IS THE ANSWER GROUP OF SCHOOLS",
+  motto:   "Motto: KNOWLEDGE IS FREEDOM",
+  address: "Idumegan Quarters, Ekpoma, Edo State.",
 };
 
-const LOGO_PUBLIC_PATH = '/images/Result%20Generation%20System.jpg';
+// ─── colour constants ─────────────────────────────────────────────────────────
+const C_PRIMARY   = "#1f3d2e";   // dark green header
+const C_HEADER_BG = "#f3d9b1";   // cream summary header
+const C_WHITE     = "#ffffff";
+const C_LIGHT     = "#f9f9f9";
+const C_BORDER    = "#bbbbbb";
+const C_TEXT      = "#111111";
+const C_MUTED     = "#555555";
 
-export async function fetchLogoAsDataUri(): Promise<string | undefined> {
-  try {
-    const response = await fetch(LOGO_PUBLIC_PATH);
-    if (!response.ok) return undefined;
-    const blob = await response.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror   = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return undefined;
-  }
+// hex → [r,g,b]
+function hex2rgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  return [
+    parseInt(clean.substring(0, 2), 16),
+    parseInt(clean.substring(2, 4), 16),
+    parseInt(clean.substring(4, 6), 16),
+  ];
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── PDF builder ──────────────────────────────────────────────────────────────
 
-const Header = ({ result, school }: { result: Result; school: SchoolInfo }) => {
-  // Build all dynamic strings in JS — never in JSX interpolation
-  const titleText = result.resultType === 'Midterm'
-    ? 'Mid Term Report'
-    : str(result.term) + " Term Student's Performance Report";
-
-  const subtitleText = result.resultType === 'Midterm'
-    ? str(result.term).toUpperCase() + ' TERM (MID TERM) PERFORMANCE REPORT'
-    : '';
-
-  return (
-    <View>
-      <View style={styles.headerRow}>
-        {school.logoDataUri
-          ? <Image style={styles.logo} src={school.logoDataUri} />
-          : <View  style={styles.logoPlaceholder} />
-        }
-        <View style={styles.headerCenter}>
-          <Text style={styles.schoolName}>{str(school.name)}</Text>
-          {school.motto   ? <Text style={styles.motto}      >{str(school.motto)}</Text>   : null}
-          {school.address ? <Text style={styles.addressLine}>{str(school.address)}</Text> : null}
-        </View>
-      </View>
-      <Text style={styles.reportTitle}>{titleText}</Text>
-      {subtitleText ? <Text style={styles.reportSubtitle}>{subtitleText}</Text> : null}
-    </View>
-  );
-};
-
-const StudentInfoBar = ({ result }: { result: Result }) => {
-  // Pre-build every label+value pair as a single string
-  const nameText    = 'Name: '    + str(result.studentName);
-  const classText   = 'Class: '   + str(result.class);
-  const sessionText = 'Session: ' + str(result.session);
-  const admText     = 'Admission No: ' + str(result.admissionNumber);
-  const ageText     = 'Age: '     + str((result as any).age);
-  const houseText   = 'House: '   + str(result.house);
-  const clubText    = 'Club/Society: ' + str(result.club);
-
-  return (
-    <View style={styles.infoBar}>
-      <View style={styles.infoRow}>
-        <Text>{nameText}</Text>
-        <Text>{classText}</Text>
-        <Text>{sessionText}</Text>
-      </View>
-      <View style={styles.infoRow}>
-        <Text>{admText}</Text>
-        <Text>{ageText}</Text>
-        <Text>{houseText}</Text>
-        <Text>{clubText}</Text>
-      </View>
-    </View>
-  );
-};
-
-const SubjectsTable = ({ result }: { result: Result }) => (
-  <View style={styles.table}>
-    <View style={styles.tHeadRow}>
-      <Text style={[styles.th, styles.subjectCol]}>{'Subject'}</Text>
-      <Text style={[styles.th, styles.scoreCol]}>{'Score'}</Text>
-      <Text style={[styles.th, styles.scoreCol]}>{'%'}</Text>
-      <Text style={[styles.th, styles.gradeCol]}>{'Grade'}</Text>
-      <Text style={[styles.th, styles.posCol]}>{'Position'}</Text>
-      <Text style={[styles.th, styles.remarkCol]}>{'Remark'}</Text>
-      <Text style={[styles.th, styles.avgCol]}>{'Class Avg'}</Text>
-    </View>
-
-    {(result.subjects ?? []).map((s, i) => {
-      // Convert ALL values to strings here, before JSX
-      const name  = str(s?.name,  'Subject');
-      // score may be a number — must be stringified
-      const score = s?.score != null ? String(s.score) : '0';
-      const grade = str(s?.grade);
-      const remark = str(s?.remark);
-
-      return (
-        <View key={String(i)} style={styles.tRow}>
-          <Text style={[styles.td, styles.subjectCol]}>{name}</Text>
-          <Text style={[styles.td, styles.scoreCol]}>{score}</Text>
-          <Text style={[styles.td, styles.scoreCol]}>{score}</Text>
-          <Text style={[styles.td, styles.gradeCol]}>{grade}</Text>
-          <Text style={[styles.td, styles.posCol]}>{'—'}</Text>
-          <Text style={[styles.td, styles.remarkCol]}>{remark}</Text>
-          <Text style={[styles.td, styles.avgCol]}>{'—'}</Text>
-        </View>
-      );
-    })}
-  </View>
-);
-
-const AttendanceBox = ({ result }: { result: Result }) => {
-  const a = result.attendance ?? { opened: 0, present: 0, absent: 0 };
-  // Convert numbers to strings up-front
-  const opened  = String(a.opened  ?? 0);
-  const present = String(a.present ?? 0);
-  const absent  = String(a.absent  ?? 0);
-  const openedNum = Number(a.opened ?? 0);
-  const presentNum = Number(a.present ?? 0);
-  const pct = openedNum > 0
-    ? present + ' (' + ((presentNum / openedNum) * 100).toFixed(1) + '%)'
-    : present;
-
-  return (
-    <View style={styles.box}>
-      <Text style={styles.boxTitle}>{'Attendance Summary'}</Text>
-      <View style={styles.boxRow}>
-        <Text>{'Times School Opened'}</Text>
-        <Text>{opened}</Text>
-      </View>
-      <View style={styles.boxRow}>
-        <Text>{'No of Times Present'}</Text>
-        <Text>{pct}</Text>
-      </View>
-      <View style={styles.boxRow}>
-        <Text>{'No of Times Absent'}</Text>
-        <Text>{absent}</Text>
-      </View>
-    </View>
-  );
-};
-
-const SummaryBox = ({ result }: { result: Result }) => {
-  const subjects = result.subjects ?? [];
-  // All arithmetic done in JS — results stored as strings
-  const totalObtainable = String(subjects.length * 100);
-  const totalObtained   = result.totalScore != null ? String(result.totalScore) : '0';
-  const avg = result.averageScore != null
-    ? result.averageScore.toFixed(1) + '%'
-    : '—';
-  const pos          = result.position ? getOrdinalSuffix(result.position) : 'N/A';
-  const subjectCount = String(subjects.length);
-  const grade        = str(result.overallGrade);
-
-  const title = result.resultType === 'Midterm'
-    ? 'Mid Term Performance Summary'
-    : 'Performance Summary';
-
-  return (
-    <View style={styles.summaryBox}>
-      <Text style={styles.summaryTitle}>{title}</Text>
-      <View style={styles.summaryRow}><Text>{'Total Obtainable'}</Text>  <Text>{totalObtainable}</Text></View>
-      <View style={styles.summaryRow}><Text>{'Total Obtained'}</Text>    <Text>{totalObtained}</Text></View>
-      <View style={styles.summaryRow}><Text>{'Total Subjects Offered'}</Text><Text>{subjectCount}</Text></View>
-      <View style={styles.summaryRow}><Text>{'%TAGE'}</Text>             <Text>{avg}</Text></View>
-      <View style={styles.summaryRow}><Text>{'Grade'}</Text>             <Text>{grade}</Text></View>
-      <View style={styles.summaryRow}><Text>{'Position'}</Text>          <Text>{pos}</Text></View>
-    </View>
-  );
-};
-
-const GradeScale = () => {
-  const scaleText = GRADING_SCALE
-    .map(g => g.grade + ' (' + String(g.min) + '-' + String(g.max) + '%): ' + g.remark)
-    .join('  |  ');
-
-  return (
-    <View style={styles.box}>
-      <Text style={styles.gradeScaleTitle}>{'Grading Scale'}</Text>
-      <Text style={styles.gradeScaleText}>{scaleText}</Text>
-    </View>
-  );
-};
-
-const RatingTable = ({
-  title,
-  labels,
-  ratings,
-}: {
-  title:    string;
-  labels:   readonly string[];
-  ratings?: Record<string, number>;
-}) => {
-  const ratingNums = [5, 4, 3, 2, 1];
-
-  return (
-    <View style={styles.box}>
-      <View style={styles.ratingHeaderRow}>
-        <Text style={styles.ratingLabelCol}>{str(title)}</Text>
-        {ratingNums.map(n => (
-          <Text key={String(n)} style={styles.ratingNumCol}>{String(n)}</Text>
-        ))}
-      </View>
-
-      {labels.map(label => {
-        // value is always a number (or defaulted to 0) — convert cells to strings
-        const value = ratings?.[label] ?? 0;
-        return (
-          <View key={label} style={styles.ratingRow}>
-            <Text style={styles.ratingLabel}>{str(label)}</Text>
-            {ratingNums.map(n => {
-              // Produce a plain string — never a conditional expression that
-              // could return a number or boolean
-              const cellText: string = value === n ? '\u2713' : ' ';
-              return (
-                <Text key={String(n)} style={styles.ratingCell}>{cellText}</Text>
-              );
-            })}
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
-const RatingLegend = () => (
-  <View style={styles.box}>
-    <Text style={styles.boxTitle}>{'Rating Indices'}</Text>
-    <View style={{ padding: 4 }}>
-      {RATING_SCALE_NOTES.map((line, i) => (
-        <Text key={String(i)} style={{ fontSize: 6.5, lineHeight: 1.4 }}>{str(line)}</Text>
-      ))}
-    </View>
-  </View>
-);
-
-const Comments = ({ result }: { result: Result }) => {
-  const teacherComment   = str(result.teacherComment);
-  const principalComment = str(result.principalComment);
-
-  return (
-    <View>
-      <View style={styles.commentBox}>
-        <Text style={styles.commentLabel}>{"Class Teacher's Remark"}</Text>
-        <Text style={styles.commentText}>{teacherComment}</Text>
-        <Text style={styles.signLine}>{'Sign: ______________________'}</Text>
-      </View>
-      <View style={styles.commentBox}>
-        <Text style={styles.commentLabel}>{"Principal's Remark"}</Text>
-        <Text style={styles.commentText}>{principalComment}</Text>
-        <Text style={styles.signLine}>{'Sign: ______________________'}</Text>
-      </View>
-    </View>
-  );
-};
-
-const Footer = ({ school }: { school: SchoolInfo }) => {
-  const footerText =
-    str(school.name) +
-    ' \u00A9 ' +
-    String(new Date().getFullYear()) +
-    ' \u2022 Generated on ' +
-    new Date().toLocaleDateString();
-
-  return (
-    <View style={styles.footer}>
-      <Text>{footerText}</Text>
-    </View>
-  );
-};
-
-// ─── Next-term row ────────────────────────────────────────────────────────────
-const NextTermRow = ({ result }: { result: Result }) => {
-  const label = result.term === 'Third' ? 'Session' : 'Term';
-  const nextText = 'Next ' + label + ' Begins: ____________________';
-  const dateText = 'Date: ' + new Date().toLocaleDateString();
-
-  return (
-    <View style={styles.nextTermRow}>
-      <Text>{nextText}</Text>
-      <Text>{dateText}</Text>
-    </View>
-  );
-};
-
-// ─── Main document ────────────────────────────────────────────────────────────
-interface ResultPDFDocumentProps {
-  result: Result;
-  school?: SchoolInfo;
-}
-
-export const ResultPDFDocument = ({
-  result,
-  school = DEFAULT_SCHOOL,
-}: ResultPDFDocumentProps) => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      <Header result={result} school={school} />
-      <StudentInfoBar result={result} />
-      <SubjectsTable result={result} />
-
-      <View style={styles.twoCol}>
-        <View style={styles.colLeft}>
-          <SummaryBox result={result} />
-          {result.resultType === 'Examination' ? (
-            <>
-              <RatingTable
-                title="Affective Domain"
-                labels={AFFECTIVE_TRAITS}
-                ratings={result.affectiveDomain}
-              />
-              <RatingTable
-                title="Psychomotor Skills"
-                labels={PSYCHOMOTOR_SKILLS}
-                ratings={result.psychomotorSkills}
-              />
-            </>
-          ) : null}
-        </View>
-        <View style={styles.colRight}>
-          <AttendanceBox result={result} />
-          <GradeScale />
-          {result.resultType === 'Examination' ? <RatingLegend /> : null}
-        </View>
-      </View>
-
-      <Comments result={result} />
-      <NextTermRow result={result} />
-      <Footer school={school} />
-    </Page>
-  </Document>
-);
-
-// ─── Public API ───────────────────────────────────────────────────────────────
-
-export const generateResultPDF = async (
+export async function generateResultPDF(
   result: Result,
-  school?: SchoolInfo,
-): Promise<Blob> => {
-  const { pdf } = await import('@react-pdf/renderer');
+  school: SchoolInfo = DEFAULT_SCHOOL
+): Promise<Blob> {
+  // Dynamic import so Next.js SSR doesn't choke
+  const jsPDFModule = await import("jspdf");
+  // jsPDF may be a default export or named
+  const JsPDF =
+    (jsPDFModule as any).default ?? (jsPDFModule as any).jsPDF ?? jsPDFModule;
+  const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-  // Deep-sanitize the result object so no numeric/null/undefined value
-  // can leak into a <Text> child inside the document tree.
-  const safeSubjects = (result.subjects ?? [])
-  .filter((s): s is Subject => !!s && typeof s === 'object')
-  .map(s => ({
-    name:   typeof s.name  === 'string' ? s.name  : 'Subject',
-    score:  typeof s.score === 'number' ? s.score : (parseFloat(String(s.score)) || 0),
-    grade:  typeof s.grade  === 'string' ? s.grade  : '',
-    remark: typeof s.remark === 'string' ? s.remark : '',
-  }));
+  const PW = 210;   // page width mm
+  const PH = 297;   // page height mm
+  const ML = 14;    // margin left
+  const MR = 14;    // margin right
+  const CW = PW - ML - MR;  // content width
+  let y = 14;       // current Y cursor
 
-  const safeResult: Result = {
-    ...result,
-    subjects:         safeSubjects,
-    totalScore:       typeof result.totalScore   === 'number' ? result.totalScore   : 0,
-    averageScore:     typeof result.averageScore  === 'number' ? result.averageScore  : 0,
-    overallGrade:     result.overallGrade ?? '',
-    position:         typeof result.position === 'number' ? result.position : undefined,
-    teacherComment:   result.teacherComment   ?? '',
-    principalComment: result.principalComment ?? '',
-    house:            result.house ?? '',
-    club:             result.club  ?? '',
-    age:              result.age   ?? '',
-    attendance:       result.attendance ?? { opened: 0, present: 0, absent: 0 },
-    affectiveDomain:  result.affectiveDomain  ?? {},
-    psychomotorSkills: result.psychomotorSkills ?? {},
+  // ── helpers ──────────────────────────────────────────────────────────────────
+
+  const setColor = (hex: string) => {
+    const [r, g, b] = hex2rgb(hex);
+    doc.setTextColor(r, g, b);
   };
 
- const logoDataUri = await fetchLogoAsDataUri();
-  const resolvedSchool: SchoolInfo = {
-    ...(school ?? DEFAULT_SCHOOL),
-    logoDataUri,
+  const setFillColor = (hex: string) => {
+    const [r, g, b] = hex2rgb(hex);
+    doc.setFillColor(r, g, b);
   };
 
-  // Deep-clone to strip any non-plain-object values (Date instances,
-  // prototypes, undefined-in-arrays, etc.) that can trigger
-  // "Cannot read properties of undefined (reading 'hasOwnProperty')"
-  // inside react-pdf's Yoga layout engine.
-  const cleanResult: Result = JSON.parse(JSON.stringify(safeResult));
-  const cleanSchool: SchoolInfo = JSON.parse(JSON.stringify(resolvedSchool));
+  const setDrawColor = (hex: string) => {
+    const [r, g, b] = hex2rgb(hex);
+    doc.setDrawColor(r, g, b);
+  };
 
-  return pdf(
-    <ResultPDFDocument result={cleanResult} school={cleanSchool} />
-  ).toBlob();
-};
+  const rect = (x: number, yy: number, w: number, h: number, fill: string, stroke?: string) => {
+    setFillColor(fill);
+    if (stroke) {
+      setDrawColor(stroke);
+      doc.rect(x, yy, w, h, "FD");
+    } else {
+      doc.rect(x, yy, w, h, "F");
+    }
+  };
 
-export const downloadResultPDF = async (
-  result:  Result,
-  school?: SchoolInfo,
-): Promise<void> => {
-  const { downloadPDF } = await import('@/lib/export');
-  const blob     = await generateResultPDF(result, school);
-  const safeName = result.studentName.replace(/\s+/g, '_');
-  const safeSess = result.session.replace(/\//g, '-');
-  const filename = `${safeName}_${result.term}_${result.resultType}_${safeSess}.pdf`;
-  downloadPDF(blob, filename);
-};
+  const text = (
+    txt: string,
+    x: number,
+    yy: number,
+    opts: { align?: "left" | "center" | "right"; maxWidth?: number } = {}
+  ) => {
+    doc.text(txt, x, yy, opts as any);
+  };
+
+  const line = (x1: number, y1: number, x2: number, y2: number, color = C_BORDER) => {
+    setDrawColor(color);
+    doc.line(x1, y1, x2, y2);
+  };
+
+  const checkPageBreak = (needed: number) => {
+    if (y + needed > PH - 14) {
+      doc.addPage();
+      y = 14;
+    }
+  };
+
+  // ── HEADER ────────────────────────────────────────────────────────────────
+
+  // Background band
+  rect(ML, y, CW, 22, "#f0f4f0");
+
+  // School name
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  setColor(C_PRIMARY);
+  text(s(school.name), PW / 2, y + 7, { align: "center" });
+
+  if (school.motto) {
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    setColor(C_MUTED);
+    text(s(school.motto), PW / 2, y + 12, { align: "center" });
+  }
+  if (school.address) {
+    doc.setFontSize(7);
+    text(s(school.address), PW / 2, y + 16, { align: "center" });
+  }
+
+  y += 24;
+
+  // Report title
+  const isMidterm = result.resultType === "Midterm";
+  const titleText = isMidterm
+    ? `MID TERM REPORT — ${s(result.term).toUpperCase()} TERM`
+    : `${s(result.term).toUpperCase()} TERM STUDENT'S PERFORMANCE REPORT`;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  setColor(C_PRIMARY);
+  text(titleText, PW / 2, y, { align: "center" });
+  y += 3;
+  line(ML, y, ML + CW, y, C_PRIMARY);
+  y += 4;
+
+  // ── STUDENT INFO BAR ──────────────────────────────────────────────────────
+
+  rect(ML, y, CW, 16, "#f5f5f5", C_BORDER);
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  setColor(C_TEXT);
+
+  const col1 = ML + 3;
+  const col2 = ML + CW * 0.38;
+  const col3 = ML + CW * 0.70;
+  const r1y  = y + 5;
+  const r2y  = y + 11;
+
+  // Row 1
+  doc.setFont("helvetica", "bold");
+  text("Name:", col1, r1y);
+  doc.setFont("helvetica", "normal");
+  text(s(result.studentName), col1 + 12, r1y);
+
+  doc.setFont("helvetica", "bold");
+  text("Class:", col2, r1y);
+  doc.setFont("helvetica", "normal");
+  text(s(result.class), col2 + 11, r1y);
+
+  doc.setFont("helvetica", "bold");
+  text("Session:", col3, r1y);
+  doc.setFont("helvetica", "normal");
+  text(s(result.session), col3 + 16, r1y);
+
+  // Row 2
+  doc.setFont("helvetica", "bold");
+  text("Adm No:", col1, r2y);
+  doc.setFont("helvetica", "normal");
+  text(s(result.admissionNumber), col1 + 15, r2y);
+
+  doc.setFont("helvetica", "bold");
+  text("Age:", col2, r2y);
+  doc.setFont("helvetica", "normal");
+  text(s((result as any).age), col2 + 8, r2y);
+
+  doc.setFont("helvetica", "bold");
+  text("House:", col3, r2y);
+  doc.setFont("helvetica", "normal");
+  text(s(result.house), col3 + 13, r2y);
+
+  y += 19;
+
+  // ── SUBJECTS TABLE ─────────────────────────────────────────────────────────
+
+  checkPageBreak(30);
+
+  // Column widths (total = CW)
+  const COL = {
+    subject: CW * 0.28,
+    cat1:    CW * 0.09,
+    cat2:    CW * 0.09,
+    exam:    CW * 0.09,
+    total:   CW * 0.09,
+    grade:   CW * 0.08,
+    pos:     CW * 0.09,
+    remark:  CW * 0.19,
+  };
+
+  const ROW_H = 6;
+  const TH_H  = 7;
+
+  // Table header
+  let cx = ML;
+  rect(cx, y, CW, TH_H, C_PRIMARY);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  setColor(C_WHITE);
+
+  const headers = ["Subject", "CAT 1", "CAT 2", "EXAM", "Total", "Grade", "Position", "Remark"];
+  const widths  = Object.values(COL);
+  headers.forEach((h, i) => {
+    const cx2 = cx + widths.slice(0, i).reduce((a, b) => a + b, 0);
+    text(h, cx2 + widths[i] / 2, y + TH_H - 1.5, { align: "center" });
+  });
+  y += TH_H;
+
+  // Rows
+  const subjects = result.subjects ?? [];
+  subjects.forEach((sub, idx) => {
+    checkPageBreak(ROW_H + 2);
+    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    rect(ML, y, CW, ROW_H, bg, C_BORDER);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    setColor(C_TEXT);
+
+    let xx = ML;
+    const cells = [
+      s(sub?.name, "Subject"),
+      s(sub?.cat1 != null ? sub.cat1 : ""),
+      s(sub?.cat2 != null ? sub.cat2 : ""),
+      s(sub?.exam != null ? sub.exam : ""),
+      s(sub?.score),
+      s(sub?.grade),
+      "—",
+      s(sub?.remark),
+    ];
+    widths.forEach((w, i) => {
+      const align = i === 0 || i === 7 ? "left" : "center";
+      const tx = align === "center" ? xx + w / 2 : xx + 2;
+      text(cells[i], tx, y + ROW_H - 1.5, { align });
+      xx += w;
+    });
+    y += ROW_H;
+  });
+
+  // Table bottom border
+  line(ML, y, ML + CW, y);
+  y += 5;
+
+  // ── TWO COLUMN SECTION ────────────────────────────────────────────────────
+
+  checkPageBreak(60);
+
+  const leftW  = CW * 0.62;
+  const rightW = CW * 0.36;
+  const gap    = CW * 0.02;
+
+  const leftX  = ML;
+  const rightX = ML + leftW + gap;
+
+  let leftY  = y;
+  let rightY = y;
+
+  // ── LEFT: Summary ─────────────────────────────────────────────────────────
+
+  const summaryTitle = isMidterm ? "Mid Term Performance Summary" : "Performance Summary";
+  rect(leftX, leftY, leftW, 6, C_HEADER_BG, C_BORDER);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  setColor(C_PRIMARY);
+  text(summaryTitle, leftX + leftW / 2, leftY + 4, { align: "center" });
+  leftY += 6;
+
+  const totalObtainable = subjects.length * 100;
+  const summaryRows = [
+    ["Total Obtainable",     String(totalObtainable)],
+    ["Total Obtained",       s(result.totalScore, "0")],
+    ["Total Subjects",       String(subjects.length)],
+    ["Average %",            result.averageScore != null ? result.averageScore.toFixed(1) + "%" : "—"],
+    ["Overall Grade",        s(result.overallGrade)],
+    ["Position in Class",    result.position ? ordinal(result.position) : "N/A"],
+  ];
+
+  summaryRows.forEach(([label, val], idx) => {
+    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    rect(leftX, leftY, leftW, 5.5, bg, C_BORDER);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    setColor(C_TEXT);
+    text(label, leftX + 3, leftY + 3.8);
+    doc.setFont("helvetica", "bold");
+    text(val, leftX + leftW - 3, leftY + 3.8, { align: "right" });
+    leftY += 5.5;
+  });
+  leftY += 4;
+
+  // ── LEFT: Affective Domain ────────────────────────────────────────────────
+
+  if (!isMidterm) {
+    checkPageBreak(10);
+    const drawRatingTable = (
+      startX: number,
+      startY: number,
+      width: number,
+      title: string,
+      labels: readonly string[],
+      ratings: Record<string, number> | undefined
+    ): number => {
+      rect(startX, startY, width, 6, C_PRIMARY);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      setColor(C_WHITE);
+      text(title, startX + width * 0.30, startY + 4);
+
+      // Column headers: 5 4 3 2 1
+      const labelW = width * 0.60;
+      const numW   = width * 0.08;
+      [5, 4, 3, 2, 1].forEach((n, i) => {
+        text(String(n), startX + labelW + numW * i + numW / 2, startY + 4, { align: "center" });
+      });
+      startY += 6;
+
+      labels.forEach((label, idx) => {
+        const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+        rect(startX, startY, width, 5, bg, C_BORDER);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        setColor(C_TEXT);
+        text(s(label), startX + 2, startY + 3.5);
+
+        const val = ratings?.[label] ?? 0;
+        [5, 4, 3, 2, 1].forEach((n, i) => {
+          const cx2 = startX + labelW + numW * i + numW / 2;
+          if (val === n) {
+            doc.setFont("helvetica", "bold");
+            setColor(C_PRIMARY);
+            text("✓", cx2, startY + 3.5, { align: "center" });
+            doc.setFont("helvetica", "normal");
+            setColor(C_TEXT);
+          }
+        });
+        startY += 5;
+      });
+      return startY + 2;
+    };
+
+    leftY = drawRatingTable(leftX, leftY, leftW, "Affective Domain", AFFECTIVE_TRAITS, result.affectiveDomain);
+    checkPageBreak(10);
+    leftY = drawRatingTable(leftX, leftY, leftW, "Psychomotor Skills", PSYCHOMOTOR_SKILLS, result.psychomotorSkills);
+  }
+
+  // ── RIGHT: Attendance ─────────────────────────────────────────────────────
+
+  rect(rightX, rightY, rightW, 6, C_PRIMARY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  setColor(C_WHITE);
+  text("Attendance", rightX + rightW / 2, rightY + 4, { align: "center" });
+  rightY += 6;
+
+  const att = result.attendance ?? { opened: 0, present: 0, absent: 0 };
+  const attRows = [
+    ["School Days",  String(att.opened  ?? 0)],
+    ["Present",      String(att.present ?? 0)],
+    ["Absent",       String(att.absent  ?? 0)],
+  ];
+  attRows.forEach(([label, val], idx) => {
+    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    rect(rightX, rightY, rightW, 5.5, bg, C_BORDER);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    setColor(C_TEXT);
+    text(label, rightX + 2, rightY + 3.8);
+    doc.setFont("helvetica", "bold");
+    text(val, rightX + rightW - 2, rightY + 3.8, { align: "right" });
+    rightY += 5.5;
+  });
+  rightY += 4;
+
+  // ── RIGHT: Grading Scale ──────────────────────────────────────────────────
+
+  rect(rightX, rightY, rightW, 6, C_PRIMARY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  setColor(C_WHITE);
+  text("Grading Scale", rightX + rightW / 2, rightY + 4, { align: "center" });
+  rightY += 6;
+
+  GRADING_SCALE.forEach(({ min, max, grade, remark }, idx) => {
+    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    rect(rightX, rightY, rightW, 5, bg, C_BORDER);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    setColor(C_PRIMARY);
+    text(grade, rightX + 3, rightY + 3.5);
+    doc.setFont("helvetica", "normal");
+    setColor(C_TEXT);
+    text(`(${min}–${max}%) ${remark}`, rightX + 9, rightY + 3.5);
+    rightY += 5;
+  });
+  rightY += 4;
+
+  // ── RIGHT: Rating Legend (exam only) ──────────────────────────────────────
+
+  if (!isMidterm) {
+    rect(rightX, rightY, rightW, 6, C_PRIMARY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    setColor(C_WHITE);
+    text("Rating Key", rightX + rightW / 2, rightY + 4, { align: "center" });
+    rightY += 6;
+
+    rect(rightX, rightY, rightW, RATING_SCALE_NOTES.length * 5 + 2, C_WHITE, C_BORDER);
+    RATING_SCALE_NOTES.forEach((note, idx) => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      setColor(C_TEXT);
+      text(s(note), rightX + 2, rightY + 3.5 + idx * 5);
+    });
+    rightY += RATING_SCALE_NOTES.length * 5 + 4;
+  }
+
+  // Advance main y past both columns
+  y = Math.max(leftY, rightY) + 4;
+
+  // ── COMMENTS ─────────────────────────────────────────────────────────────
+
+  checkPageBreak(28);
+
+  const commentBoxH = 22;
+
+  const drawCommentBox = (title: string, comment: string, startY: number): number => {
+    rect(ML, startY, CW, 5.5, C_PRIMARY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    setColor(C_WHITE);
+    text(title, ML + 3, startY + 3.8);
+    startY += 5.5;
+
+    rect(ML, startY, CW, commentBoxH, C_WHITE, C_BORDER);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    setColor(C_TEXT);
+
+    // Word-wrap the comment
+    const wrapped = doc.splitTextToSize(s(comment, ""), CW - 6);
+    wrapped.slice(0, 3).forEach((line: string, i: number) => {
+      text(line, ML + 3, startY + 5 + i * 5);
+    });
+
+    doc.setFontSize(7);
+    setColor(C_MUTED);
+    text("Sign: ______________________", ML + CW - 3, startY + commentBoxH - 3, { align: "right" });
+
+    return startY + commentBoxH + 3;
+  };
+
+  y = drawCommentBox("Class Teacher's Remark", s(result.teacherComment), y);
+  checkPageBreak(28);
+  y = drawCommentBox("Principal's Remark", s(result.principalComment), y);
+
+  // ── NEXT TERM ROW ─────────────────────────────────────────────────────────
+
+  checkPageBreak(12);
+  y += 2;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  setColor(C_TEXT);
+  const nextLabel = result.term === "Third" ? "Next Session" : "Next Term";
+  text(`${nextLabel} Begins: ____________________`, ML, y);
+  text(`Date: ${new Date().toLocaleDateString()}`, ML + CW, y, { align: "right" });
+  y += 5;
+
+  // ── FOOTER ────────────────────────────────────────────────────────────────
+
+  line(ML, PH - 12, ML + CW, PH - 12);
+  doc.setFontSize(6.5);
+  setColor(C_MUTED);
+  text(
+    `${s(school.name)} © ${new Date().getFullYear()} • Generated ${new Date().toLocaleDateString()}`,
+    PW / 2,
+    PH - 8,
+    { align: "center" }
+  );
+
+  return doc.output("blob");
+}
+
+// ─── Public download helper ───────────────────────────────────────────────────
+
+export async function downloadResultPDF(
+  result: Result,
+  school: SchoolInfo = DEFAULT_SCHOOL
+): Promise<void> {
+  const blob = await generateResultPDF(result, school);
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const safeName = s(result.studentName, "Student").replace(/\s+/g, "_");
+  const safeSess = s(result.session).replace(/\//g, "-");
+  link.href     = url;
+  link.download = `${safeName}_${s(result.term)}_${s(result.resultType)}_${safeSess}.pdf`;
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

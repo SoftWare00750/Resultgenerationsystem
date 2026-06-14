@@ -1,34 +1,54 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { resultsService } from '@/lib/services/results';
-import { toast } from 'sonner';
-import { RefreshCw, Eye, Download } from 'lucide-react';
-import { Result } from '@/lib/types';
-import { formatDate, getOrdinalSuffix } from '@/lib/utils';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { FileText } from 'lucide-react';
-import Image from 'next/image';
+import { useEffect, useState } from "react";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { resultsService } from "@/lib/services/results";
+import { downloadResultPDF } from "@/lib/services/pdf-generator";
+import { toast } from "sonner";
+import { RefreshCw, FileText, Download } from "lucide-react";
+import { Result } from "@/lib/types";
+import { formatDate, getOrdinalSuffix } from "@/lib/utils";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export default function AdminResultsPage() {
   const [results, setResults] = useState<Result[]>([]);
   const [filteredResults, setFilteredResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterClass, setFilterClass] = useState('all');
-  const [filterTerm, setFilterTerm] = useState('all');
+  const [filterClass, setFilterClass] = useState("all");
+  const [filterTerm, setFilterTerm] = useState("all");
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const fetchResults = async () => {
+    setLoading(true);
     try {
       const allResults = await resultsService.getAllResults();
       setResults(allResults);
       setFilteredResults(allResults);
-    } catch (error) {
-      toast.error('Failed to fetch results');
+    } catch {
+      toast.error("Failed to fetch results");
     } finally {
       setLoading(false);
     }
@@ -40,19 +60,25 @@ export default function AdminResultsPage() {
 
   useEffect(() => {
     let filtered = results;
-
-    if (filterClass !== 'all') {
-      filtered = filtered.filter(r => r.class === filterClass);
-    }
-
-    if (filterTerm !== 'all') {
-      filtered = filtered.filter(r => r.term === filterTerm);
-    }
-
+    if (filterClass !== "all") filtered = filtered.filter((r) => r.class === filterClass);
+    if (filterTerm !== "all")  filtered = filtered.filter((r) => r.term  === filterTerm);
     setFilteredResults(filtered);
   }, [filterClass, filterTerm, results]);
 
-  const uniqueClasses = [...new Set(results.map(r => r.class))];
+  const handleDownload = async (result: Result) => {
+    setDownloading(result.$id);
+    try {
+      await downloadResultPDF(result);
+      toast.success("PDF downloaded");
+    } catch (e: any) {
+      console.error("PDF error:", e);
+      toast.error(e?.message || "Failed to generate PDF");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const uniqueClasses = [...new Set(results.map((r) => r.class))];
 
   return (
     <DashboardLayout role="admin">
@@ -62,8 +88,8 @@ export default function AdminResultsPage() {
             <h1 className="text-3xl font-bold">All Results</h1>
             <p className="text-muted-foreground">Monitor and manage student results</p>
           </div>
-          <Button onClick={fetchResults} variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button onClick={fetchResults} variant="outline" disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
@@ -73,7 +99,9 @@ export default function AdminResultsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Results Overview</CardTitle>
-                <CardDescription>Filter and view all generated results</CardDescription>
+                <CardDescription>
+                  {filteredResults.length} result{filteredResults.length !== 1 ? "s" : ""} found
+                </CardDescription>
               </div>
               <div className="flex gap-2">
                 <Select value={filterClass} onValueChange={setFilterClass}>
@@ -82,10 +110,8 @@ export default function AdminResultsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Classes</SelectItem>
-                    {uniqueClasses.map((className) => (
-                      <SelectItem key={className} value={className}>
-                        {className}
-                      </SelectItem>
+                    {uniqueClasses.map((cls) => (
+                      <SelectItem key={cls} value={cls}>{cls}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -129,6 +155,7 @@ export default function AdminResultsPage() {
                       <TableHead>Position</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Date</TableHead>
+                      <TableHead className="text-right">PDF</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -145,18 +172,37 @@ export default function AdminResultsPage() {
                             {result.overallGrade}
                           </span>
                         </TableCell>
-                        <TableCell>{result.position ? getOrdinalSuffix(result.position) : 'N/A'}</TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                            result.published 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {result.published ? 'Published' : 'Draft'}
+                          {result.position ? getOrdinalSuffix(result.position) : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                              result.published
+                                ? "bg-green-100 text-green-700"
+                                : "bg-yellow-100 text-yellow-700"
+                            }`}
+                          >
+                            {result.published ? "Published" : "Draft"}
                           </span>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {formatDate(result.createdAt, 'PP')}
+                          {formatDate(result.createdAt, "PP")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDownload(result)}
+                            disabled={downloading === result.$id}
+                            title="Download PDF"
+                          >
+                            {downloading === result.$id ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

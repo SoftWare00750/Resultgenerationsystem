@@ -335,17 +335,17 @@ export default function TeacherResultsPage() {
   };
 
   // ── Download PDF ────────────────────────────────────────────────────────────
-  const handleDownload = async (result: Result) => {
-    setDownloading(result.$id);
-    try {
-      await downloadResultPDF(result);
-      toast.success('PDF downloaded');
-    } catch (e: any) {
-      console.error("PDF Generation Error Details:", e);
-      toast.error(e.message || 'Failed to generate PDF');
-    } finally {
-      setDownloading(null);
-    }
+      const handleDownload = async (result: Result) => {
+     setDownloading(result.$id);
+     try {
+       await downloadResultPDF(result);
+       toast.success("PDF downloaded");
+     } catch (e: any) {
+       console.error("PDF error:", e);
+       toast.error(e?.message || "Failed to generate PDF");
+     } finally {
+       setDownloading(null);
+     }
   };
 
   // ── Computed totals ─────────────────────────────────────────────────────────
