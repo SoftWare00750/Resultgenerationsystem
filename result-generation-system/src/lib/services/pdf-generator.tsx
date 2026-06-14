@@ -264,11 +264,12 @@ export async function generateResultPDF(
     setColor(C_TEXT);
 
     let xx = ML;
+    const subAny = sub as any;
     const cells = [
       s(sub?.name, "Subject"),
-      s(sub?.cat1 != null ? sub.cat1 : ""),
-      s(sub?.cat2 != null ? sub.cat2 : ""),
-      s(sub?.exam != null ? sub.exam : ""),
+      s(subAny?.cat1 != null ? subAny.cat1 : ""),
+      s(subAny?.cat2 != null ? subAny.cat2 : ""),
+      s(subAny?.exam != null ? subAny.exam : ""),
       s(sub?.score),
       s(sub?.grade),
       "—",
