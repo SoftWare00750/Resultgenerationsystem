@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { authService } from '@/lib/services/auth';
 import {
   Home, Users, GraduationCap, FileText, LogOut, Key,
-  BookOpen, Calendar, UserCircle, Menu, X, ChevronRight
+  BookOpen, Calendar, UserCircle, Menu, X, ChevronRight, Settings,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -41,26 +41,27 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
     switch (role) {
       case 'admin':
         return [
-          { icon: Home, label: 'Dashboard', href: '/admin/dashboard' },
-          { icon: Users, label: 'Manage Users', href: '/admin/users' },
-          { icon: Key, label: 'Auth Codes', href: '/admin/auth-codes' },
-          { icon: BookOpen, label: 'Classes', href: '/admin/classes' },
-          { icon: GraduationCap, label: 'Students', href: '/admin/students' },
-          { icon: FileText, label: 'Results', href: '/admin/results' },
-          { icon: Calendar, label: 'Sessions', href: '/admin/sessions' },
+          { icon: Home,         label: 'Dashboard',     href: '/admin/dashboard' },
+          { icon: Users,        label: 'Manage Users',  href: '/admin/users' },
+          { icon: Key,          label: 'Auth Codes',    href: '/admin/auth-codes' },
+          { icon: BookOpen,     label: 'Classes',       href: '/admin/classes' },
+          { icon: GraduationCap,label: 'Students',      href: '/admin/students' },
+          { icon: FileText,     label: 'Results',       href: '/admin/results' },
+          { icon: Calendar,     label: 'Sessions',      href: '/admin/sessions' },
+          { icon: Settings,     label: 'School Settings',href: '/admin/settings' },
         ];
       case 'teacher':
         return [
-          { icon: Home, label: 'Dashboard', href: '/teacher/dashboard' },
-          { icon: GraduationCap, label: 'My Students', href: '/teacher/students' },
-          { icon: FileText, label: 'Create Results', href: '/teacher/results' },
-          { icon: BookOpen, label: 'My Classes', href: '/teacher/classes' },
+          { icon: Home,          label: 'Dashboard',      href: '/teacher/dashboard' },
+          { icon: GraduationCap, label: 'My Students',    href: '/teacher/students' },
+          { icon: FileText,      label: 'Create Results', href: '/teacher/results' },
+          { icon: BookOpen,      label: 'My Classes',     href: '/teacher/classes' },
         ];
       case 'parent':
         return [
-          { icon: Home, label: 'Dashboard', href: '/parent/dashboard' },
-          { icon: UserCircle, label: 'My Wards', href: '/parent/wards' },
-          { icon: FileText, label: 'View Results', href: '/parent/results' },
+          { icon: Home,       label: 'Dashboard',   href: '/parent/dashboard' },
+          { icon: UserCircle, label: 'My Wards',    href: '/parent/wards' },
+          { icon: FileText,   label: 'View Results',href: '/parent/results' },
         ];
       default:
         return [];
@@ -70,9 +71,9 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
   const navItems = getNavItems();
 
   const roleColors: Record<UserRole, string> = {
-    admin: 'from-slate-900 to-slate-800',
+    admin:   'from-slate-900 to-slate-800',
     teacher: 'from-blue-900 to-blue-800',
-    parent: 'from-emerald-900 to-emerald-800',
+    parent:  'from-emerald-900 to-emerald-800',
   };
 
   const Sidebar = () => (
@@ -80,28 +81,25 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
       "fixed left-0 top-0 z-40 h-screen w-64 border-r bg-background flex flex-col transition-transform duration-300",
       sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
     )}>
-      
       {/* Logo */}
-<div className={cn("flex h-16 items-center border-b px-5 bg-gradient-to-r", roleColors[role])}>
-  <div className="flex items-center gap-3 w-full">
-    <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20 overflow-hidden">
-      <Image
-        src="/images/Result%20Generation%20System.jpg"
-        alt="Result Generation System Logo"
-        fill
-        className="object-cover"
-        priority
-      />
-    </div>
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-semibold text-white truncate">Result System</p>
-      <p className="text-xs text-white/60 capitalize">{role} Portal</p>
-    </div>
-    <button onClick={() => setSidebarOpen(false)} className="md:hidden text-white/70 hover:text-white">
-      <X className="h-5 w-5" />
-    </button>
-  </div>
-</div>
+      <div className={cn("flex h-16 items-center border-b px-5 bg-gradient-to-r", roleColors[role])}>
+        <div className="flex items-center gap-3 w-full">
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20 overflow-hidden">
+            <Image
+              src="/images/Result%20Generation%20System.jpg"
+              alt="Result Generation System Logo"
+              fill className="object-cover" priority
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white truncate">Result System</p>
+            <p className="text-xs text-white/60 capitalize">{role} Portal</p>
+          </div>
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-white/70 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto">

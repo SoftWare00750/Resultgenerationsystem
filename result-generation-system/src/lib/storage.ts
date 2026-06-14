@@ -11,7 +11,22 @@ export const KEYS = {
   sessions: 'rgs_sessions',
   currentSession: 'rgs_current_session',
   currentUser: 'rgs_current_user',
+  schoolInfo: 'rgs_school_info',       // school name, logo, address
+  signatures: 'rgs_signatures',         // principal + teacher signatures by userId
 };
+
+export interface SchoolInfo {
+  name: string;
+  logo?: string;       // base64 data URL
+  address?: string;
+  motto?: string;
+}
+
+export interface SignatureStore {
+  [userId: string]: string; // base64 data URL of signature
+}
+
+// ─── Generic store helpers ────────────────────────────────────────────────────
 
 export function getStore<T>(key: string): T[] {
   if (typeof window === 'undefined') return [];
@@ -27,6 +42,42 @@ export function setStore<T>(key: string, data: T[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(key, JSON.stringify(data));
 }
+
+// ─── School info ──────────────────────────────────────────────────────────────
+
+export function getSchoolInfo(): SchoolInfo | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(KEYS.schoolInfo);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+export function setSchoolInfo(info: SchoolInfo): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(KEYS.schoolInfo, JSON.stringify(info));
+}
+
+// ─── Signatures ───────────────────────────────────────────────────────────────
+
+export function getSignatures(): SignatureStore {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(localStorage.getItem(KEYS.signatures) || '{}');
+  } catch { return {}; }
+}
+
+export function setSignature(userId: string, signatureDataUrl: string): void {
+  const sigs = getSignatures();
+  sigs[userId] = signatureDataUrl;
+  localStorage.setItem(KEYS.signatures, JSON.stringify(sigs));
+}
+
+export function getSignature(userId: string): string | null {
+  return getSignatures()[userId] || null;
+}
+
+// ─── Seed defaults ────────────────────────────────────────────────────────────
 
 export function seedDefaults() {
   if (typeof window === 'undefined') return;
@@ -59,47 +110,22 @@ export function seedDefaults() {
   const classes = getStore<Class>(KEYS.classes);
   if (classes.length === 0) {
     const defaultClasses: Class[] = [
-      {
-        $id: ID.unique(),
-        name: 'Primary 1',
-        category: 'Primary',
-        students: [],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        $id: ID.unique(),
-        name: 'Primary 2',
-        category: 'Primary',
-        students: [],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        $id: ID.unique(),
-        name: 'Nursery 1',
-        category: 'Nursery',
-        students: [],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        $id: ID.unique(),
-        name: 'Kindergarten 1',
-        category: 'Kindergarten',
-        students: [],
-        createdAt: new Date().toISOString(),
-      },
+      { $id: ID.unique(), name: 'Primary 1', category: 'Primary', students: [], createdAt: new Date().toISOString() },
+      { $id: ID.unique(), name: 'Primary 2', category: 'Primary', students: [], createdAt: new Date().toISOString() },
+      { $id: ID.unique(), name: 'Nursery 1', category: 'Nursery', students: [], createdAt: new Date().toISOString() },
+      { $id: ID.unique(), name: 'Kindergarten 1', category: 'Kindergarten', students: [], createdAt: new Date().toISOString() },
     ];
     setStore(KEYS.classes, defaultClasses);
   }
 }
 
-// Auth passwords stored separately (not in users array for security)
+// ─── Auth passwords ───────────────────────────────────────────────────────────
+
 export function getPasswords(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   try {
     return JSON.parse(localStorage.getItem('rgs_passwords') || '{}');
-  } catch {
-    return {};
-  }
+  } catch { return {}; }
 }
 
 export function setPassword(userId: string, password: string) {

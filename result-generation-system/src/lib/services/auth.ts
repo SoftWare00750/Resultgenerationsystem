@@ -1,6 +1,12 @@
 import { User, UserRole } from '@/lib/types';
 import { ID } from '../id';
-import { getStore, setStore, KEYS, getPasswords, setPassword, seedDefaults, ensureAdminPassword } from '../storage';
+import {
+  getStore, setStore, KEYS,
+  getPasswords, setPassword,
+  seedDefaults, ensureAdminPassword,
+  getSchoolInfo, setSchoolInfo, setSignature,
+  SchoolInfo,
+} from '../storage';
 
 export const authService = {
   async login(email: string, password: string): Promise<User> {
@@ -15,20 +21,67 @@ export const authService = {
     return user;
   },
 
-  async register(email: string, password: string, name: string, role: UserRole, authCode: string, phone?: string): Promise<User> {
+  /**
+   * Register a new user.
+   * - Admin: requires school name, logo, address, principal signature.
+   *          Auth code with role=admin is still required.
+   * - Teacher: requires school name (must match existing school), teacher signature.
+   *            Auth code with role=teacher required.
+   * - Parent: no extra fields needed.
+   */
+  async register(
+    email: string,
+    password: string,
+    name: string,
+    role: UserRole,
+    authCode: string,
+    phone?: string,
+    // School / profile extras
+    extras?: {
+      schoolName?: string;
+      schoolLogo?: string;       // base64
+      schoolAddress?: string;
+      schoolMotto?: string;
+      signatureDataUrl?: string; // base64 (teacher or principal)
+    }
+  ): Promise<User> {
     seedDefaults();
     const users = getStore<User>(KEYS.users);
     const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (existing) throw new Error('An account with this email already exists');
 
-    // All roles (including admin) require a valid auth code
+    // Validate auth code
     const codes = getStore<any>(KEYS.authCodes);
     const code = codes.find((c: any) => c.code === authCode && c.role === role && !c.isUsed);
     if (!code) throw new Error('Invalid or already used authorization code for this role');
     if (new Date(code.expiresAt) < new Date()) throw new Error('Authorization code has expired');
-    // Mark code as used
-    const updated = codes.map((c: any) => c.code === authCode ? { ...c, isUsed: true, usedBy: email } : c);
-    setStore(KEYS.authCodes, updated);
+
+    // Role-specific validation
+    if (role === 'admin') {
+      if (!extras?.schoolName?.trim()) throw new Error('School name is required for admin registration');
+      // Save school info (first admin wins, subsequent admins update it)
+      const schoolInfo: SchoolInfo = {
+        name: extras.schoolName.trim(),
+        logo: extras.schoolLogo,
+        address: extras.schoolAddress?.trim(),
+        motto: extras.schoolMotto?.trim(),
+      };
+      setSchoolInfo(schoolInfo);
+    }
+
+    if (role === 'teacher') {
+      if (!extras?.schoolName?.trim()) throw new Error('School name is required for teacher registration');
+      const schoolInfo = getSchoolInfo();
+      if (schoolInfo && schoolInfo.name.toLowerCase() !== extras.schoolName.trim().toLowerCase()) {
+        throw new Error(`School name does not match. Please enter the correct school name: "${schoolInfo.name}"`);
+      }
+    }
+
+    // Mark auth code as used
+    const updatedCodes = codes.map((c: any) =>
+      c.code === authCode ? { ...c, isUsed: true, usedBy: email } : c
+    );
+    setStore(KEYS.authCodes, updatedCodes);
 
     const newUser: User = {
       $id: ID.unique(),
@@ -42,6 +95,12 @@ export const authService = {
     users.push(newUser);
     setStore(KEYS.users, users);
     setPassword(newUser.$id, password);
+
+    // Save signature if provided (admin = principal sig, teacher = teacher sig)
+    if (extras?.signatureDataUrl) {
+      setSignature(newUser.$id, extras.signatureDataUrl);
+    }
+
     localStorage.setItem(KEYS.currentUser, JSON.stringify(newUser));
     return newUser;
   },
@@ -53,7 +112,6 @@ export const authService = {
       const raw = localStorage.getItem(KEYS.currentUser);
       if (!raw) return null;
       const stored = JSON.parse(raw) as User;
-      // Verify still in users list
       const users = getStore<User>(KEYS.users);
       const user = users.find(u => u.$id === stored.$id);
       return user || null;
