@@ -70,7 +70,7 @@ export interface Result {
   age?: string;
 }
 
-export type ClassCategory = 'Nursery' | 'Kindergarten' | 'Primary';
+export type ClassCategory = 'Nursery' | 'Kindergarten' | 'Primary' | 'JSS' | 'SSS';
 
 export interface Class {
   $id: string;
@@ -120,6 +120,12 @@ export const CLASS_OPTIONS = [
   'Primary 4',
   'Primary 5',
   'Primary 6',
+  'JSS 1',
+  'JSS 2',
+  'JSS 3',
+  'SS 1',
+  'SS 2',
+  'SS 3',
 ] as const;
 
 export const NURSERY_SUBJECTS = [
@@ -153,9 +159,53 @@ export const PRIMARY_SUBJECTS = [
   'Handwriting',
 ];
 
+export const JSS_SUBJECTS = [
+  'Mathematics',
+  'English Language',
+  'Basic Science',
+  'Basic Technology',
+  'Social Studies',
+  'Civic Education',
+  'Christian Religious Studies',
+  'Islamic Religious Studies',
+  'Physical & Health Education',
+  'French Language',
+  'Yoruba / Igbo / Hausa',
+  'Agricultural Science',
+  'Home Economics',
+  'Computer Studies',
+  'Fine Arts',
+  'Music',
+  'Business Studies',
+];
+
+export const SSS_SUBJECTS = [
+  'Mathematics',
+  'English Language',
+  'Economics',
+  'Government',
+  'Literature in English',
+  'Christian Religious Studies',
+  'Islamic Religious Studies',
+  'Further Mathematics',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'Agricultural Science',
+  'Commerce',
+  'Accounting',
+  'Geography',
+  'French Language',
+  'Computer Studies',
+  'Civic Education',
+  'Physical & Health Education',
+];
+
 export const getSubjectsByCategory = (className: string): string[] => {
   if (className.includes('Nursery')) return NURSERY_SUBJECTS;
   if (className.includes('Kindergarten')) return KINDERGARTEN_SUBJECTS;
+  if (className.startsWith('JSS')) return JSS_SUBJECTS;
+  if (className.startsWith('SS')) return SSS_SUBJECTS;
   return PRIMARY_SUBJECTS;
 };
 

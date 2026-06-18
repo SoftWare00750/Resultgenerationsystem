@@ -110,12 +110,43 @@ export function seedDefaults() {
   const classes = getStore<Class>(KEYS.classes);
   if (classes.length === 0) {
     const defaultClasses: Class[] = [
+      // Primary
       { $id: ID.unique(), name: 'Primary 1', category: 'Primary', students: [], createdAt: new Date().toISOString() },
       { $id: ID.unique(), name: 'Primary 2', category: 'Primary', students: [], createdAt: new Date().toISOString() },
+      // Nursery
       { $id: ID.unique(), name: 'Nursery 1', category: 'Nursery', students: [], createdAt: new Date().toISOString() },
+      // Kindergarten
       { $id: ID.unique(), name: 'Kindergarten 1', category: 'Kindergarten', students: [], createdAt: new Date().toISOString() },
+      // Junior Secondary
+      { $id: ID.unique(), name: 'JSS 1', category: 'JSS', students: [], createdAt: new Date().toISOString() },
+      { $id: ID.unique(), name: 'JSS 2', category: 'JSS', students: [], createdAt: new Date().toISOString() },
+      { $id: ID.unique(), name: 'JSS 3', category: 'JSS', students: [], createdAt: new Date().toISOString() },
+      // Senior Secondary
+      { $id: ID.unique(), name: 'SS 1', category: 'SSS', students: [], createdAt: new Date().toISOString() },
+      { $id: ID.unique(), name: 'SS 2', category: 'SSS', students: [], createdAt: new Date().toISOString() },
+      { $id: ID.unique(), name: 'SS 3', category: 'SSS', students: [], createdAt: new Date().toISOString() },
     ];
     setStore(KEYS.classes, defaultClasses);
+  } else {
+    // Patch: add any missing JSS/SSS classes to existing installs
+    const existingNames = new Set(classes.map((c: any) => c.name));
+    const toAdd: Class[] = [];
+    const secondary = [
+      { name: 'JSS 1', category: 'JSS' as const },
+      { name: 'JSS 2', category: 'JSS' as const },
+      { name: 'JSS 3', category: 'JSS' as const },
+      { name: 'SS 1',  category: 'SSS' as const },
+      { name: 'SS 2',  category: 'SSS' as const },
+      { name: 'SS 3',  category: 'SSS' as const },
+    ];
+    for (const { name, category } of secondary) {
+      if (!existingNames.has(name)) {
+        toAdd.push({ $id: ID.unique(), name, category, students: [], createdAt: new Date().toISOString() });
+      }
+    }
+    if (toAdd.length > 0) {
+      setStore(KEYS.classes, [...classes, ...toAdd]);
+    }
   }
 }
 
