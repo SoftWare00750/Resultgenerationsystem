@@ -107,7 +107,7 @@ export default function RegisterPage() {
   href="/auth/login" 
   className="-ml-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
 >
-  <ArrowLeft className="h-3.5 w-100" /> 
+  <ArrowLeft className="h-3.5 w-500" /> 
   Back to login
 </Link>
             <div className="flex items-center gap-3 mb-5">
