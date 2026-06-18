@@ -102,7 +102,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-lg">
         <div className="space-y-6">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Sign in</h2>
+            <h2 className="text-3xl font-bold tracking-tight h-3.5 w-3.5">Sign in</h2>
             <Link href="/auth/login" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
               <ArrowLeft className="h-3.5 w-.5" /> Back to login
             </Link>
