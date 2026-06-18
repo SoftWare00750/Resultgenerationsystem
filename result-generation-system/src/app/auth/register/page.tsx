@@ -102,10 +102,14 @@ export default function RegisterPage() {
       <div className="w-full max-w-lg">
         <div className="space-y-6">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight h-3.5 w-5.5">Register</h2>
-            <Link href="/auth/login" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-              <ArrowLeft className="h-3.5 w-50.5 marginLeft-9" /> Back to login
-            </Link>
+           <h2 className="text-3xl font-bold tracking-tight mb-2">Register</h2>
+<Link 
+  href="/auth/login" 
+  className="-ml-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+>
+  <ArrowLeft className="h-4 w-4" /> 
+  Back to login
+</Link>
             <div className="flex items-center gap-3 mb-5">
               <div className="relative w-10 h-10 rounded-xl bg-white overflow-hidden border">
                 <Image src="/images/Result%20Generation%20System.jpg" alt="Logo" fill className="object-cover" priority />
