@@ -57,15 +57,46 @@ async function request<T>(
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError(
+      `Could not reach the API server at ${API_BASE_URL}. Check that NEXT_PUBLIC_API_URL is set and the backend is running.`,
+      0
+    );
+  }
 
   // Handle empty responses (e.g. 204 No Content from DELETE)
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+
+  // If the backend URL is misconfigured, fetch often resolves to an HTML
+  // 404/500 page instead of JSON. Detect that explicitly instead of letting
+  // JSON.parse throw a confusing "Unexpected token '<'" error.
+  const looksLikeHtml = text.trim().startsWith('<');
+  if (looksLikeHtml) {
+    throw new ApiError(
+      `API request to ${API_BASE_URL}${path} returned an HTML page instead of JSON (status ${res.status}). ` +
+        `This usually means NEXT_PUBLIC_API_URL is missing or pointing at the wrong server.`,
+      res.status
+    );
+  }
+
+  let data: any = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new ApiError(
+        `API at ${API_BASE_URL}${path} returned a non-JSON response (status ${res.status}).`,
+        res.status
+      );
+    }
+  }
 
   if (!res.ok) {
     const message =
