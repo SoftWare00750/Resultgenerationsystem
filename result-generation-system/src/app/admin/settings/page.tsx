@@ -7,11 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SignatureUpload } from "@/components/shared/SignatureUpload";
-import {
-  getSchoolInfo, setSchoolInfo,
-  getSignature, setSignature,
-  getStore, KEYS,
-} from "@/lib/storage";
+import { schoolService } from "@/lib/services/school";
+import { setSignature, getSignature, setSchoolInfo } from "@/lib/storage";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
 import { Building2, Save, Upload, X } from "lucide-react";
@@ -24,30 +21,37 @@ export default function SchoolSettingsPage() {
     name: "",
     address: "",
     motto: "",
-    logo: "",          // base64
-    principalSig: "", // base64
+    logo: "",
+    principalSig: "",
   });
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const info = getSchoolInfo();
-    if (info) {
-      setForm(f => ({
-        ...f,
-        name: info.name || "",
-        address: info.address || "",
-        motto: info.motto || "",
-        logo: info.logo || "",
-      }));
-    }
-    // Load current admin's (principal's) signature
-    if (user) {
-      const sig = getSignature(user.$id);
-      if (sig) setForm(f => ({ ...f, principalSig: sig }));
-    }
+    (async () => {
+      try {
+        const info = await schoolService.get();
+        if (info) {
+          setForm((f) => ({
+            ...f,
+            name: info.name || "",
+            address: info.address || "",
+            motto: info.motto || "",
+            logo: info.logo || "",
+          }));
+        }
+      } catch {
+        // fallback to local
+      }
+      if (user) {
+        const sig = getSignature(user.$id);
+        if (sig) setForm((f) => ({ ...f, principalSig: sig }));
+      }
+      setLoading(false);
+    })();
   }, [user]);
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,6 +68,14 @@ export default function SchoolSettingsPage() {
 
     setSaving(true);
     try {
+      await schoolService.save({
+        name: form.name.trim(),
+        address: form.address.trim(),
+        motto: form.motto.trim(),
+        logo: form.logo || undefined,
+      });
+
+      // Also persist locally for the PDF generator
       setSchoolInfo({
         name: form.name.trim(),
         address: form.address.trim(),
@@ -76,10 +88,20 @@ export default function SchoolSettingsPage() {
       }
 
       toast.success("School settings saved — all new PDFs will use these details");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save settings");
     } finally {
       setSaving(false);
     }
   };
+
+  if (loading) return (
+    <DashboardLayout role="admin">
+      <div className="flex justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    </DashboardLayout>
+  );
 
   return (
     <DashboardLayout role="admin">
@@ -107,7 +129,7 @@ export default function SchoolSettingsPage() {
                   id="name"
                   placeholder="e.g. CHRIST IS THE ANSWER GROUP OF SCHOOLS"
                   value={form.name}
-                  onChange={e => set("name", e.target.value)}
+                  onChange={(e) => set("name", e.target.value)}
                   required
                 />
               </div>
@@ -118,7 +140,7 @@ export default function SchoolSettingsPage() {
                   id="address"
                   placeholder="e.g. Idumegan Quarters, Ekpoma, Edo State"
                   value={form.address}
-                  onChange={e => set("address", e.target.value)}
+                  onChange={(e) => set("address", e.target.value)}
                 />
               </div>
 
@@ -128,11 +150,10 @@ export default function SchoolSettingsPage() {
                   id="motto"
                   placeholder="e.g. Knowledge is Freedom"
                   value={form.motto}
-                  onChange={e => set("motto", e.target.value)}
+                  onChange={(e) => set("motto", e.target.value)}
                 />
               </div>
 
-              {/* Logo */}
               <div className="space-y-2">
                 <Label>School Logo</Label>
                 {form.logo ? (
@@ -146,7 +167,7 @@ export default function SchoolSettingsPage() {
                           <Upload className="h-3 w-3 mr-1" />Change
                         </Button>
                         <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-destructive"
-                          onClick={() => { set("logo",""); if (logoRef.current) logoRef.current.value=""; }}>
+                          onClick={() => { set("logo", ""); if (logoRef.current) logoRef.current.value = ""; }}>
                           <X className="h-3 w-3 mr-1" />Remove
                         </Button>
                       </div>
@@ -167,14 +188,14 @@ export default function SchoolSettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Principal's Signature</CardTitle>
+              <CardTitle className="text-base">Principal&apos;s Signature</CardTitle>
               <CardDescription>Appears on all result sheet PDFs in the signature row</CardDescription>
             </CardHeader>
             <CardContent>
               <SignatureUpload
                 label="Principal's Signature"
                 value={form.principalSig}
-                onChange={v => set("principalSig", v)}
+                onChange={(v) => set("principalSig", v)}
                 hint="Upload a clear image of the principal's signature (PNG/JPG, max 2MB)"
               />
             </CardContent>

@@ -1,4 +1,8 @@
-// src/lib/store/auth-store.ts
+/**
+ * store/auth-store.ts
+ * Zustand auth store. The JWT itself is stored in localStorage by api.ts.
+ * The user object is derived fresh from /api/auth/me on page load.
+ */
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -8,9 +12,9 @@ export interface User {
   name: string;
   email: string;
   role?: string;
-  phone?: string;        // ← add this
-  assignedClasses?: string;  // ← add this
-  createdAt?: string;        // ← add this
+  phone?: string;
+  assignedClasses?: string;
+  createdAt?: string;
 }
 
 interface AuthState {
@@ -49,13 +53,12 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
         }),
 
-      setLoading: (isLoading) =>
-        set({
-          isLoading,
-        }),
+      setLoading: (isLoading) => set({ isLoading }),
     }),
     {
       name: 'auth-storage',
+      // Only persist the user object — the token is managed by api.ts
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
     }
   )
 );

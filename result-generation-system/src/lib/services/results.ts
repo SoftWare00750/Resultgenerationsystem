@@ -1,68 +1,114 @@
-import { Result, Subject, GRADING_SCALE } from '@/lib/types';
-import { ID } from '../id';
-import { getStore, setStore, KEYS } from '../storage';
+/**
+ * services/results.ts
+ * Replaces the localStorage-based results service.
+ */
+
+import { api } from '../api';
+import { Result, Subject, GRADING_SCALE } from '../types';
+
+interface BackendResult {
+  id: string;
+  student_id: string;
+  student_name: string;
+  admission_number: string;
+  class: string;
+  term: string;
+  session: string;
+  result_type: string;
+  subjects: Subject[];
+  total_score?: number;
+  average_score?: number;
+  overall_grade?: string;
+  position?: number;
+  teacher_comment?: string;
+  principal_comment?: string;
+  published: boolean;
+  pdf_url?: string;
+  created_by: string;
+  created_at: string;
+  updated_at?: string;
+  attendance?: { opened: number; present: number; absent: number };
+  affective_domain?: Record<string, number>;
+  psychomotor_skills?: Record<string, number>;
+  house?: string;
+  club?: string;
+  age?: string;
+}
+
+function mapResult(r: BackendResult): Result {
+  return {
+    $id: r.id,
+    studentId: r.student_id,
+    studentName: r.student_name,
+    admissionNumber: r.admission_number,
+    class: r.class,
+    term: r.term as Result['term'],
+    session: r.session,
+    resultType: r.result_type as Result['resultType'],
+    subjects: r.subjects ?? [],
+    totalScore: r.total_score,
+    averageScore: typeof r.average_score === 'string' ? parseFloat(r.average_score) : r.average_score,
+    overallGrade: r.overall_grade,
+    position: r.position,
+    teacherComment: r.teacher_comment,
+    principalComment: r.principal_comment,
+    published: r.published,
+    pdfUrl: r.pdf_url,
+    createdBy: r.created_by,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    attendance: r.attendance,
+    affectiveDomain: r.affective_domain,
+    psychomotorSkills: r.psychomotor_skills,
+    house: r.house,
+    club: r.club,
+    age: r.age,
+  };
+}
 
 export const resultsService = {
   calculateGrade(score: number): { grade: string; remark: string } {
-    const g = GRADING_SCALE.find(g => score >= g.min && score <= g.max);
-    return g ? { grade: g.grade, remark: g.remark } : { grade: 'F9', remark: 'Fail' };
+    const g = GRADING_SCALE.find((g) => score >= g.min && score <= g.max);
+    return g ? { grade: g.grade, remark: g.remark } : { grade: 'F', remark: 'Fail' };
   },
 
   async createResult(data: Omit<Result, '$id' | 'createdAt' | 'updatedAt'>): Promise<Result> {
-    const subjects = data.subjects || [];
-    const totalScore = subjects.reduce((sum, s) => sum + (s.score || 0), 0);
-    const averageScore = subjects.length > 0 ? totalScore / subjects.length : 0;
-    const { grade } = this.calculateGrade(averageScore);
-
-    const newResult: Result = {
-      ...data,
-      $id: ID.unique(),
-      totalScore,
-      averageScore: parseFloat(averageScore.toFixed(2)),
-      overallGrade: grade,
-      position: 1,
-      published: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    const body = {
+      studentId: data.studentId,
+      studentName: data.studentName,
+      admissionNumber: data.admissionNumber,
+      class: data.class,
+      term: data.term,
+      session: data.session,
+      resultType: data.resultType,
+      subjects: data.subjects,
+      teacherComment: data.teacherComment,
+      principalComment: data.principalComment,
+      attendance: data.attendance,
+      affectiveDomain: data.affectiveDomain,
+      psychomotorSkills: data.psychomotorSkills,
+      house: data.house,
+      club: data.club,
+      age: data.age,
     };
-
-    const allResults = getStore<Result>(KEYS.results);
-    allResults.unshift(newResult);
-    setStore(KEYS.results, allResults);
-
-    this._recalcPositions(data.class, data.term, data.session, data.resultType);
-    return getStore<Result>(KEYS.results).find(r => r.$id === newResult.$id)!;
-  },
-
-  _recalcPositions(className: string, term: string, session: string, resultType: string) {
-    const all = getStore<Result>(KEYS.results);
-    const group = all.filter(
-      r => r.class === className && r.term === term &&
-           r.session === session && r.resultType === resultType
-    );
-    const sorted = [...group].sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0));
-    sorted.forEach((r, i) => {
-      const idx = all.findIndex(x => x.$id === r.$id);
-      if (idx !== -1) all[idx].position = i + 1;
-    });
-    setStore(KEYS.results, all);
+    const res = await api.post<BackendResult>('/results', body);
+    return mapResult(res);
   },
 
   async updateResult(resultId: string, data: Partial<Result>): Promise<Result> {
-    const all = getStore<Result>(KEYS.results);
-    const idx = all.findIndex(r => r.$id === resultId);
-    if (idx === -1) throw new Error('Result not found');
-    let updated = { ...all[idx], ...data, updatedAt: new Date().toISOString() };
-    if (data.subjects) {
-      const subjects = data.subjects;
-      const totalScore = subjects.reduce((sum, s) => sum + (s.score || 0), 0);
-      const averageScore = subjects.length > 0 ? totalScore / subjects.length : 0;
-      const { grade } = this.calculateGrade(averageScore);
-      updated = { ...updated, totalScore, averageScore: parseFloat(averageScore.toFixed(2)), overallGrade: grade };
-    }
-    all[idx] = updated;
-    setStore(KEYS.results, all);
-    return updated;
+    const body: Record<string, unknown> = {};
+    if (data.subjects !== undefined) body.subjects = data.subjects;
+    if (data.teacherComment !== undefined) body.teacherComment = data.teacherComment;
+    if (data.principalComment !== undefined) body.principalComment = data.principalComment;
+    if (data.published !== undefined) body.published = data.published;
+    if (data.attendance !== undefined) body.attendance = data.attendance;
+    if (data.affectiveDomain !== undefined) body.affectiveDomain = data.affectiveDomain;
+    if (data.psychomotorSkills !== undefined) body.psychomotorSkills = data.psychomotorSkills;
+    if (data.house !== undefined) body.house = data.house;
+    if (data.club !== undefined) body.club = data.club;
+    if (data.age !== undefined) body.age = data.age;
+    const res = await api.patch<BackendResult>(`/results/${resultId}`, body);
+    return mapResult(res);
   },
 
   async publishResult(resultId: string): Promise<Result> {
@@ -74,22 +120,24 @@ export const resultsService = {
   },
 
   async getResultsByStudent(studentId: string): Promise<Result[]> {
-    return getStore<Result>(KEYS.results).filter(r => r.studentId === studentId);
+    const rows = await api.get<BackendResult[]>(`/results?studentId=${studentId}`);
+    return rows.map(mapResult);
   },
 
   async getResultsByClass(className: string, term?: string, session?: string): Promise<Result[]> {
-    let results = getStore<Result>(KEYS.results).filter(r => r.class === className);
-    if (term)    results = results.filter(r => r.term === term);
-    if (session) results = results.filter(r => r.session === session);
-    return results;
+    let qs = `/results?class=${encodeURIComponent(className)}`;
+    if (term) qs += `&term=${encodeURIComponent(term)}`;
+    if (session) qs += `&session=${encodeURIComponent(session)}`;
+    const rows = await api.get<BackendResult[]>(qs);
+    return rows.map(mapResult);
   },
 
   async getAllResults(): Promise<Result[]> {
-    return getStore<Result>(KEYS.results);
+    const rows = await api.get<BackendResult[]>('/results');
+    return rows.map(mapResult);
   },
 
   async deleteResult(resultId: string): Promise<void> {
-    const all = getStore<Result>(KEYS.results);
-    setStore(KEYS.results, all.filter(r => r.$id !== resultId));
+    await api.del(`/results/${resultId}`);
   },
 };

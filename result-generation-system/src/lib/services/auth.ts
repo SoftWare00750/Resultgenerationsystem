@@ -1,34 +1,51 @@
-import { User, UserRole } from '@/lib/types';
-import { ID } from '../id';
-import {
-  getStore, setStore, KEYS,
-  getPasswords, setPassword,
-  seedDefaults, ensureAdminPassword,
-  getSchoolInfo, setSchoolInfo, setSignature,
-  SchoolInfo,
-} from '../storage';
+/**
+ * services/auth.ts
+ * Replaces the localStorage-based auth service.
+ * All calls go to /api/auth/* and /api/users/*.
+ */
+
+import { api, setToken, clearToken, getToken } from '../api';
+import { User, UserRole } from '../types';
+
+// Shape returned by the backend login/register endpoints
+interface AuthResponse {
+  token: string;
+  user: BackendUser;
+}
+
+// Backend user shape (snake_case → camelCase mapping happens here)
+interface BackendUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone?: string;
+  assigned_classes?: unknown[];
+  signature_url?: string;
+  created_at: string;
+}
+
+function mapUser(u: BackendUser): User {
+  return {
+    $id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    phone: u.phone || '',
+    assignedClasses: JSON.stringify(u.assigned_classes || []),
+    createdAt: u.created_at,
+  };
+}
 
 export const authService = {
   async login(email: string, password: string): Promise<User> {
-    seedDefaults();
-    ensureAdminPassword();
-    const users = getStore<User>(KEYS.users);
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (!user) throw new Error('No account found with this email address');
-    const passwords = getPasswords();
-    if (passwords[user.$id] !== password) throw new Error('Incorrect password');
-    localStorage.setItem(KEYS.currentUser, JSON.stringify(user));
-    return user;
+    const data = await api.post<AuthResponse>('/auth/login', { email, password }, { skipAuth: true });
+    setToken(data.token);
+    // Persist user for getCurrentUser
+    localStorage.setItem('rgs_current_user', JSON.stringify(mapUser(data.user)));
+    return mapUser(data.user);
   },
 
-  /**
-   * Register a new user.
-   * - Admin: requires school name, logo, address, principal signature.
-   *          Auth code with role=admin is still required.
-   * - Teacher: requires school name (must match existing school), teacher signature.
-   *            Auth code with role=teacher required.
-   * - Parent: no extra fields needed.
-   */
   async register(
     email: string,
     password: string,
@@ -36,138 +53,96 @@ export const authService = {
     role: UserRole,
     authCode: string,
     phone?: string,
-    // School / profile extras
     extras?: {
       schoolName?: string;
-      schoolLogo?: string;       // base64
+      schoolLogo?: string;
       schoolAddress?: string;
       schoolMotto?: string;
-      signatureDataUrl?: string; // base64 (teacher or principal)
+      signatureDataUrl?: string;
     }
   ): Promise<User> {
-    seedDefaults();
-    const users = getStore<User>(KEYS.users);
-    const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (existing) throw new Error('An account with this email already exists');
-
-    // Validate auth code
-    const codes = getStore<any>(KEYS.authCodes);
-    const code = codes.find((c: any) => c.code === authCode && c.role === role && !c.isUsed);
-    if (!code) throw new Error('Invalid or already used authorization code for this role');
-    if (new Date(code.expiresAt) < new Date()) throw new Error('Authorization code has expired');
-
-    // Role-specific validation
-    if (role === 'admin') {
-      if (!extras?.schoolName?.trim()) throw new Error('School name is required for admin registration');
-      // Save school info (first admin wins, subsequent admins update it)
-      const schoolInfo: SchoolInfo = {
-        name: extras.schoolName.trim(),
-        logo: extras.schoolLogo,
-        address: extras.schoolAddress?.trim(),
-        motto: extras.schoolMotto?.trim(),
-      };
-      setSchoolInfo(schoolInfo);
-    }
-
-    if (role === 'teacher') {
-      if (!extras?.schoolName?.trim()) throw new Error('School name is required for teacher registration');
-      const schoolInfo = getSchoolInfo();
-      if (schoolInfo && schoolInfo.name.toLowerCase() !== extras.schoolName.trim().toLowerCase()) {
-        throw new Error(`School name does not match. Please enter the correct school name: "${schoolInfo.name}"`);
-      }
-    }
-
-    // Mark auth code as used
-    const updatedCodes = codes.map((c: any) =>
-      c.code === authCode ? { ...c, isUsed: true, usedBy: email } : c
-    );
-    setStore(KEYS.authCodes, updatedCodes);
-
-    const newUser: User = {
-      $id: ID.unique(),
+    const body = {
       name,
       email,
+      password,
       role,
-      phone: phone || '',
-      assignedClasses: '[]',
-      createdAt: new Date().toISOString(),
+      authCode,
+      phone,
+      schoolName: extras?.schoolName,
+      schoolLogo: extras?.schoolLogo,
+      schoolAddress: extras?.schoolAddress,
+      schoolMotto: extras?.schoolMotto,
+      signatureDataUrl: extras?.signatureDataUrl,
     };
-    users.push(newUser);
-    setStore(KEYS.users, users);
-    setPassword(newUser.$id, password);
 
-    // Save signature if provided (admin = principal sig, teacher = teacher sig)
-    if (extras?.signatureDataUrl) {
-      setSignature(newUser.$id, extras.signatureDataUrl);
-    }
-
-    localStorage.setItem(KEYS.currentUser, JSON.stringify(newUser));
-    return newUser;
+    const data = await api.post<AuthResponse>('/auth/register', body, { skipAuth: true });
+    setToken(data.token);
+    localStorage.setItem('rgs_current_user', JSON.stringify(mapUser(data.user)));
+    return mapUser(data.user);
   },
 
   async getCurrentUser(): Promise<User | null> {
     if (typeof window === 'undefined') return null;
-    seedDefaults();
+    const token = getToken();
+    if (!token) return null;
     try {
-      const raw = localStorage.getItem(KEYS.currentUser);
-      if (!raw) return null;
-      const stored = JSON.parse(raw) as User;
-      const users = getStore<User>(KEYS.users);
-      const user = users.find(u => u.$id === stored.$id);
-      return user || null;
-    } catch { return null; }
+      const data = await api.get<{ user: BackendUser }>('/auth/me');
+      const user = mapUser(data.user);
+      localStorage.setItem('rgs_current_user', JSON.stringify(user));
+      return user;
+    } catch {
+      clearToken();
+      return null;
+    }
   },
 
   async logout(): Promise<void> {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(KEYS.currentUser);
-    }
+    clearToken();
+    localStorage.removeItem('rgs_current_user');
   },
 
-  async generateAuthCode(role: UserRole, createdBy: string): Promise<any> {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    const authCode = {
-      $id: ID.unique(),
-      code,
-      role,
-      isUsed: false,
-      expiresAt: expiresAt.toISOString(),
-      createdBy,
-      createdAt: new Date().toISOString(),
-    };
-    const codes = getStore<any>(KEYS.authCodes);
-    codes.unshift(authCode);
-    setStore(KEYS.authCodes, codes);
-    return authCode;
+  // ── Admin: auth codes ──────────────────────────────────────────────────────
+
+  async generateAuthCode(role: UserRole, _createdBy: string): Promise<unknown> {
+    return api.post('/auth-codes', { role });
   },
 
-  async getAuthCodes(): Promise<any[]> {
-    return getStore<any>(KEYS.authCodes);
+  async getAuthCodes(): Promise<unknown[]> {
+    const rows = await api.get<unknown[]>('/auth-codes');
+    // Normalise to the shape the UI expects ($id, isUsed, expiresAt, createdAt)
+    return (rows as any[]).map((c) => ({
+      $id: c.id,
+      code: c.code,
+      role: c.role,
+      isUsed: c.is_used,
+      usedBy: c.used_by,
+      expiresAt: c.expires_at,
+      createdAt: c.created_at,
+      createdBy: c.created_by,
+    }));
   },
+
+  async deleteAuthCode(id: string): Promise<void> {
+    await api.del(`/auth-codes/${id}`);
+  },
+
+  // ── Admin: user management ─────────────────────────────────────────────────
 
   async getAllUsers(): Promise<User[]> {
-    seedDefaults();
-    return getStore<User>(KEYS.users);
+    const rows = await api.get<BackendUser[]>('/users');
+    return (rows as any[]).map(mapUser);
   },
 
   async deleteUser(userId: string): Promise<void> {
-    const users = getStore<User>(KEYS.users);
-    setStore(KEYS.users, users.filter(u => u.$id !== userId));
+    await api.del(`/users/${userId}`);
   },
 
-  async updateUser(userId: string, data: Partial<User>): Promise<User> {
-    const users = getStore<User>(KEYS.users);
-    const idx = users.findIndex(u => u.$id === userId);
-    if (idx === -1) throw new Error('User not found');
-    users[idx] = { ...users[idx], ...data };
-    setStore(KEYS.users, users);
-    const current = localStorage.getItem(KEYS.currentUser);
-    if (current) {
-      const cur = JSON.parse(current);
-      if (cur.$id === userId) localStorage.setItem(KEYS.currentUser, JSON.stringify(users[idx]));
-    }
-    return users[idx];
+  async updateUser(userId: string, data: Partial<User> & { signatureDataUrl?: string }): Promise<User> {
+    const body: Record<string, unknown> = {};
+    if (data.name) body.name = data.name;
+    if (data.phone !== undefined) body.phone = data.phone;
+    if (data.signatureDataUrl) body.signatureDataUrl = data.signatureDataUrl;
+    const res = await api.patch<BackendUser>(`/users/${userId}`, body);
+    return mapUser(res);
   },
 };

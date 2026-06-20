@@ -1,54 +1,108 @@
-import { Student } from '@/lib/types';
-import { ID } from '../id';
-import { getStore, setStore, KEYS } from '../storage';
+/**
+ * services/students.ts
+ * Replaces the localStorage-based students service.
+ */
+
+import { api } from '../api';
+import { Student } from '../types';
+
+interface BackendStudent {
+  id: string;
+  name: string;
+  admission_number: string;
+  class: string;
+  parent_id?: string;
+  date_of_birth?: string;
+  gender?: 'Male' | 'Female';
+  guardian_name?: string;
+  guardian_phone?: string;
+  address?: string;
+  photo_url?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+function mapStudent(s: BackendStudent): Student {
+  return {
+    $id: s.id,
+    name: s.name,
+    admissionNumber: s.admission_number,
+    class: s.class,
+    parentId: s.parent_id || '',
+    dateOfBirth: s.date_of_birth,
+    gender: s.gender,
+    guardianName: s.guardian_name,
+    guardianPhone: s.guardian_phone,
+    address: s.address,
+    // keep photo in a compatible spot — the UI accesses it via student.photo
+    ...(s.photo_url ? { photo: s.photo_url } : {}),
+    createdAt: s.created_at,
+  } as Student & { photo?: string };
+}
 
 export const studentsService = {
-  async createStudent(data: Omit<Student, '$id' | 'createdAt'>): Promise<Student> {
-    const students = getStore<Student>(KEYS.students);
-    const newStudent: Student = {
-      ...data,
-      $id: ID.unique(),
-      createdAt: new Date().toISOString(),
+  async createStudent(data: Partial<Student> & { photo?: string }): Promise<Student> {
+    const body = {
+      name: data.name,
+      admissionNumber: data.admissionNumber,
+      class: data.class,
+      parentId: data.parentId,
+      dateOfBirth: data.dateOfBirth,
+      gender: data.gender,
+      guardianName: data.guardianName,
+      guardianPhone: data.guardianPhone,
+      address: data.address,
+      photoUrl: data.photo,
     };
-    students.push(newStudent);
-    setStore(KEYS.students, students);
-    return newStudent;
+    const res = await api.post<BackendStudent>('/students', body);
+    return mapStudent(res);
   },
 
   async getStudent(studentId: string): Promise<Student> {
-    const students = getStore<Student>(KEYS.students);
-    const s = students.find(s => s.$id === studentId);
+    const all = await this.getAllStudents();
+    const s = all.find((s) => s.$id === studentId);
     if (!s) throw new Error('Student not found');
     return s;
   },
 
   async getStudentsByParent(parentId: string): Promise<Student[]> {
-    return getStore<Student>(KEYS.students).filter(s => s.parentId === parentId);
+    const rows = await api.get<BackendStudent[]>(`/students?parentId=${parentId}`);
+    return rows.map(mapStudent);
   },
 
   async getStudentsByClass(className: string): Promise<Student[]> {
-    return getStore<Student>(KEYS.students).filter(s => s.class === className);
+    const encoded = encodeURIComponent(className);
+    const rows = await api.get<BackendStudent[]>(`/students?class=${encoded}`);
+    return rows.map(mapStudent);
   },
 
   async getAllStudents(): Promise<Student[]> {
-    return getStore<Student>(KEYS.students);
+    const rows = await api.get<BackendStudent[]>('/students');
+    return rows.map(mapStudent);
   },
 
-  async updateStudent(studentId: string, data: Partial<Student>): Promise<Student> {
-    const students = getStore<Student>(KEYS.students);
-    const idx = students.findIndex(s => s.$id === studentId);
-    if (idx === -1) throw new Error('Student not found');
-    students[idx] = { ...students[idx], ...data };
-    setStore(KEYS.students, students);
-    return students[idx];
+  async updateStudent(studentId: string, data: Partial<Student> & { photo?: string }): Promise<Student> {
+    const body = {
+      name: data.name,
+      class: data.class,
+      dateOfBirth: data.dateOfBirth,
+      gender: data.gender,
+      guardianName: data.guardianName,
+      guardianPhone: data.guardianPhone,
+      address: data.address,
+      photoUrl: data.photo,
+    };
+    const res = await api.patch<BackendStudent>(`/students/${studentId}`, body);
+    return mapStudent(res);
   },
 
   async deleteStudent(studentId: string): Promise<void> {
-    const students = getStore<Student>(KEYS.students);
-    setStore(KEYS.students, students.filter(s => s.$id !== studentId));
+    await api.del(`/students/${studentId}`);
   },
 
   async checkAdmissionNumber(admissionNumber: string): Promise<boolean> {
-    return getStore<Student>(KEYS.students).some(s => s.admissionNumber === admissionNumber);
+    const encoded = encodeURIComponent(admissionNumber);
+    const data = await api.get<{ exists: boolean }>(`/students/check-admission/${encoded}`);
+    return data.exists;
   },
 };
