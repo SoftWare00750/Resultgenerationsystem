@@ -5,6 +5,6 @@
   },
   "scripts": {
     "start": "node --use-system-ca server.js",
-    "dev": "cross-env NODE_OPTIONS='--use-system-ca' vite"
+    "dev": "cross-env NODE_OPTIONS='--use-system-ca' next dev"
   }
 }
