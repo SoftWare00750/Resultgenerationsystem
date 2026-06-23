@@ -2,5 +2,9 @@
   "dependencies": {
     "react": "18.2.0",
     "react-dom": "18.2.0"
+  },
+  "scripts": {
+    "start": "node --use-system-ca server.js",
+    "dev": "nodemon --exec 'node --use-system-ca' server.js"
   }
 }
