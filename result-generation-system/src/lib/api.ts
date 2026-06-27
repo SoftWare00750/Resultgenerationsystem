@@ -3,25 +3,13 @@
  * Thin fetch wrapper used by all services (auth, students, results, classes,
  * sessions, school). Handles JWT storage and attaches the Authorization
  * header automatically unless `skipAuth` is passed.
- *
- * URL resolution (in priority order):
- *  1. NEXT_PUBLIC_API_URL env var  — explicit override, e.g. for a deployed
- *     frontend that talks directly to a cloud backend over HTTPS.
- *  2. /api  (relative, same-origin) — default for local dev and for Vercel
- *     deployments where next.config.js rewrites /api/* → backend.
- *     Using a relative URL means:
- *       • No self-signed TLS errors (request never leaves the Next.js server)
- *       • No CORS preflight (same-origin from the browser's perspective)
  */
 
-const API_BASE_URL = (() => {
-  // Explicit override (NEXT_PUBLIC_* is baked in at build time)
-  const explicit = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-  if (explicit) return explicit;
-
-  // Relative path — works both in the browser and during SSR
-  return "/api";
-})();
+const API_BASE_URL =
+  (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "") ||
+  (typeof window !== "undefined"
+    ? window.location.origin + "/api"
+    : "/api");
 
 const TOKEN_KEY = "rgs_auth_token";
 
@@ -42,21 +30,19 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-// ─── Error type ─────────────────────────────────────────────────────────────
+// ─── Core request helper ────────────────────────────────────────────────────
 
-export class ApiError extends Error {
+interface RequestOptions {
+  skipAuth?: boolean;
+}
+
+class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
   }
-}
-
-// ─── Core request helper ────────────────────────────────────────────────────
-
-interface RequestOptions {
-  skipAuth?: boolean;
 }
 
 async function request<T>(
@@ -84,12 +70,21 @@ async function request<T>(
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (err: any) {
-    // Network-level failure — server down, DNS, or (rarely) SSL cert error.
-    const msg: string = err?.message ?? String(err);
+    // Network-level failure — could be SSL cert issue, DNS, refused connection, or CORS
+    const msg = err?.message ?? String(err);
+
+    // Provide a helpful message for SSL-related failures
+    const sslHint =
+      msg.toLowerCase().includes("certificate") ||
+      msg.toLowerCase().includes("ssl") ||
+      msg.toLowerCase().includes("self-signed")
+        ? " This looks like an SSL certificate error — make sure the backend is running with a valid certificate or that NODE_TLS_REJECT_UNAUTHORIZED is not blocking the connection."
+        : "";
+
     throw new ApiError(
-      `Could not reach the API at ${url}. ` +
-        `Make sure the backend is running on port 4000 and that ` +
-        `next.config.js rewrites are in place. Original error: ${msg}`,
+      `Could not reach the API server at ${API_BASE_URL}. ` +
+        `Check that NEXT_PUBLIC_API_URL is set correctly and that the backend is running.` +
+        `${sslHint} Original error: ${msg}`,
       0
     );
   }
@@ -98,10 +93,11 @@ async function request<T>(
   const text = await res.text();
 
   // Detect HTML error pages (misconfigured proxy / wrong URL)
-  if (text.trim().startsWith("<")) {
+  const looksLikeHtml = text.trim().startsWith("<");
+  if (looksLikeHtml) {
     throw new ApiError(
-      `API at ${url} returned an HTML page instead of JSON (status ${res.status}). ` +
-        `Check that next.config.js rewrites are configured correctly.`,
+      `API request to ${url} returned an HTML page instead of JSON (status ${res.status}). ` +
+        `This usually means NEXT_PUBLIC_API_URL is missing or pointing at the wrong server.`,
       res.status
     );
   }
@@ -131,19 +127,19 @@ async function request<T>(
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export const api = {
-  get:   <T>(path: string, options?: RequestOptions) =>
+  get: <T>(path: string, options?: RequestOptions) =>
     request<T>("GET", path, undefined, options),
 
-  post:  <T>(path: string, body?: unknown, options?: RequestOptions) =>
+  post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>("POST", path, body, options),
 
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>("PATCH", path, body, options),
 
-  put:   <T>(path: string, body?: unknown, options?: RequestOptions) =>
+  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>("PUT", path, body, options),
 
-  del:   <T = void>(path: string, options?: RequestOptions) =>
+  del: <T = void>(path: string, options?: RequestOptions) =>
     request<T>("DELETE", path, undefined, options),
 };
 
