@@ -1,34 +1,12 @@
-# Dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# Testing
-/coverage
-
-# Next.js
-/.next/
-/out/
-
-# Production
-/build
-
-# Misc
-.DS_Store
+# Never commit local TLS certificates or private keys (e.g. mkcert output).
+# This app never needs local HTTPS — the backend serves plain HTTP and the
+# frontend proxies to it over plain HTTP in dev (see
+# result-generation-system/next.config.js). If cert files show up here again,
+# something has regressed to the old self-signed local-HTTPS setup that
+# caused: "self-signed certificate; if the root CA is installed locally,
+# try running Node.js with --use-system-ca".
 *.pem
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Local env files
-.env*.local
-.env
-
-# Vercel
-.vercel
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
+*.key
+*.crt
+*.p12
+*.pfx

@@ -70,23 +70,13 @@ async function request<T>(
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (err: any) {
-    // Network-level failure — could be CORS, DNS, SSL cert error, or server down.
-    // SSL certificate errors from the backend connecting to Postgres surface here
-    // as a generic network failure from the browser's perspective.
+    // Network-level failure — could be CORS, DNS, or the backend being unreachable.
     const msg = err?.message ?? String(err);
-    const isSsl =
-      msg.toLowerCase().includes("certificate") ||
-      msg.toLowerCase().includes("ssl") ||
-      msg.toLowerCase().includes("self-signed");
-
     throw new ApiError(
-      isSsl
-        ? `SSL certificate error reaching ${API_BASE_URL}. ` +
-          `Ensure the backend pool.js uses { rejectUnauthorized: false } for cloud Postgres. ` +
-          `Original error: ${msg}`
-        : `Could not reach the API server at ${API_BASE_URL}. ` +
-          `Check that NEXT_PUBLIC_API_URL is set correctly and the backend is running. ` +
-          `Original error: ${msg}`,
+      `Could not reach the API server at ${API_BASE_URL}. ` +
+        `Check that NEXT_PUBLIC_API_URL is set correctly (or, for local dev, that the ` +
+        `backend is running on the port configured by BACKEND_URL) and try again. ` +
+        `Original error: ${msg}`,
       0
     );
   }
