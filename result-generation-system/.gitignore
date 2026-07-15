@@ -1,3 +1,30 @@
+# Dependencies
+/node_modules
+
+# Next.js build output
+/.next/
+/out/
+
+# Environment variables — never commit secrets or machine-specific overrides.
+# A previous commit shipped a broken NODE_EXTRA_CA_CERTS path and a
+# NODE_OPTIONS="--use-system-ca" override via .env.local, which caused:
+#   "self-signed certificate; if the root CA is installed locally, try
+#    running Node.js with --use-system-ca"
+# on every clone of this repo. Keep only .env.example checked in.
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+!.env.example
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# OS files
+.DS_Store
+
 # Never commit local TLS certificates or private keys (e.g. mkcert output).
 # This app never needs local HTTPS — the backend serves plain HTTP and the
 # frontend proxies to it over plain HTTP in dev (see
