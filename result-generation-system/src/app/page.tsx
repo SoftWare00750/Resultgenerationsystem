@@ -1,8 +1,3 @@
-https://github.com/SoftWare00750/Resultgenerationsystem/tree/main
-https://github.com/SoftWare00750/Backend-Resultgen/tree/main
-
-update the src/app/page.tsx
-add the style.css to the page.tsx below
 
 "use client";
 import { useEffect } from "react";
