@@ -51,4 +51,4 @@ export default function Home() {
       <div dangerouslySetInnerHTML={{ __html: LANDING_BODY }} />
     </>
   );
-}com
+}
