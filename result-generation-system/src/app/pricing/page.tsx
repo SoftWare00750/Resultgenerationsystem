@@ -518,7 +518,7 @@ const PRICING_STYLE = `
   .pricing-help-text p { font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 28px; }
   .pricing-help-visual { position: relative; width: 320px; height: 320px; flex: 0 0 auto; }
   .pricing-help-photo {
-    width: 500px; height: 500px; border-radius: 50%; overflow: hidden;
+    width: 530px; height: 530px; border-radius: 50%; overflow: hidden;
     display: flex; align-items: center; justify-content: center;
     background: var(--bg-transparent); 
     position: relative; left: -29px; top: -30px; margin-top: -24px; color: var(--text-muted);
