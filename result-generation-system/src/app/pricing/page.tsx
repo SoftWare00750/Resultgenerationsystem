@@ -524,7 +524,7 @@ const PRICING_STYLE = `
     position: absolute; left: 10px; top: 7px; color: var(--text-muted);
     font-size: .85rem; text-align: center;
   }
-  .pricing-help-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; animation: floatDot 3.8s ease-in-out infinite .8s }
+  .pricing-help-photo img { width: 70%; height: 70%; object-fit: cover; object-position: center; display: block; animation: floatDot 3.8s ease-in-out infinite .8s }
 
 
   @keyframes floatDot {
