@@ -577,6 +577,7 @@ const PRICING_BODY = `
       <img src="image/ACCE-Abuja.png" alt="ACCE Abuja">
       <img src="image/I-SCHOLARS.png" alt="I-Scholars International Academy">
       <img src="image/EPITOME.png" alt="Epitome Model Islamic Schools">
+      <img src="image/Stephelm.jpg" alt="Stephelm School">
       <img src="image/EDULYN.png" alt="Edulyn Schools">
       <img src="image/CHRYSOLITE.png" alt="Chrysolite Academy">
       <img src="image/ALMUSTAQEEM.png" alt="Al-Mustaqeem Integrated Schools">
@@ -843,7 +844,7 @@ const PRICING_BODY = `
     <div class="pricing-help-text">
       <h2>Not sure which plan is right for you?</h2>
       <p>Schedule a meeting with us</p>
-      <a href="/#refer" class="btn-solid" style="font-size:1rem;padding:14px 32px;display:inline-block;">Schedule a meeting now</a>
+      <a href="https://wa.me/2349125174767" class="btn-solid" style="font-size:1rem;padding:14px 32px;display:inline-block;">Schedule a meeting now</a>
     </div>
     <div class="pricing-help-visual">
       <div class="pricing-help-dot d1"></div>
