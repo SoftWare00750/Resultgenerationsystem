@@ -520,7 +520,64 @@ const PRICING_STYLE = `
   .pricing-help-photo {
     width: 500px; height: 500px; border-radius: 50%; overflow: hidden;
     display: flex; align-items: center; justify-content: center;
-    background: var(--bg-soft); border: 2px dashed var(--border);
+    background: var(--bg-transparent
+    0
+    .03
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    ++
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    .0); border: 2px dashed var(--border);
     position: relative; left: -29px; top: -30px; margin-top: -24px; color: var(--text-muted);
     font-size: .85rem; text-align: center;
   }
