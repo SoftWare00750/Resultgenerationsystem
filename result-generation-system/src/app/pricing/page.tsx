@@ -518,13 +518,13 @@ const PRICING_STYLE = `
   .pricing-help-text p { font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 28px; }
   .pricing-help-visual { position: relative; width: 320px; height: 320px; flex: 0 0 auto; }
   .pricing-help-photo {
-    width: 500px; height: 500px; border-radius: 50%; overflow: hidden;
+    width: 400px; height: 400px; border-radius: 50%; overflow: hidden;
     display: flex; align-items: center; justify-content: center;
     background: var(--bg-soft); border: 2px dashed var(--border);
     position: absolute; left: 10px; top: 10px; color: var(--text-muted);
     font-size: .85rem; text-align: center;
   }
-  .pricing-help-photo img { width: 130%; height: 130%; object-fit: cover; object-position: center; display: block; animation: floatDot 3.8s ease-in-out infinite .8s }
+  .pricing-help-photo img { width: 10%; height: 100%; object-fit: cover; object-position: center; display: block; animation: floatDot 3.8s ease-in-out infinite .8s }
 
 
   @keyframes floatDot {
