@@ -330,6 +330,11 @@ const PRICING_STYLE = `
   .footer-logo span { font-weight: 900; font-size: 1.25rem; color: #fff; }
   .footer-tagline { font-size: .88rem; line-height: 1.7; margin-bottom: 20px; }
   .footer-address { font-size: .82rem; line-height: 1.8; }
+  .footer-mail-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF;
+    vertical-align: middle; margin-right: 4px;
+  }
   .footer-col h4 { font-size: .95rem; font-weight: 800; color: #fff; margin-bottom: 16px; }
   .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
   .footer-col ul li a { font-size: .88rem; color: #94A3B8; transition: color .2s; }
@@ -375,6 +380,16 @@ const PRICING_STYLE = `
     font-size: 1.5rem; transition: transform .2s;
   }
   .whatsapp-float:hover { transform: scale(1.1); }
+
+  /* ===== MAIL FLOAT ===== */
+  .mail-float {
+    position: fixed; bottom: 92px; right: 28px; z-index: 999;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: #FFFFFF; color: #111827; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,.18); transition: transform .2s;
+  }
+  .mail-float:hover { transform: scale(1.1); }
 
   /* ===== ANIMATIONS ===== */
   @keyframes fadeUp {
@@ -501,13 +516,13 @@ const PRICING_STYLE = `
   .pricing-help-text p { font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 28px; }
   .pricing-help-visual { position: relative; width: 320px; height: 320px; flex: 0 0 auto; }
   .pricing-help-photo {
-    width: 260px; height: 260px; border-radius: 50%; overflow: hidden;
+    width: 300px; height: 300px; border-radius: 50%; overflow: hidden;
     display: flex; align-items: center; justify-content: center;
     background: var(--bg-soft); border: 2px dashed var(--border);
-    position: absolute; left: 30px; top: 30px; color: var(--text-muted);
-    font-size: .85rem; text-align: center; padding: 12px;
+    position: absolute; left: 10px; top: 10px; color: var(--text-muted);
+    font-size: .85rem; text-align: center;
   }
-  .pricing-help-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .pricing-help-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
   .pricing-help-dot { position: absolute; border-radius: 50%; }
   .pricing-help-dot.d1 { width: 200px; height: 200px; background: var(--blue); top: 0; right: 0; z-index: -1; opacity: .95; }
   .pricing-help-dot.d2 { width: 24px; height: 24px; background: #22D3EE; top: 10px; left: 90px; }
@@ -877,7 +892,7 @@ const PRICING_BODY = `
         <strong style="color:#94A3B8;">UK:</strong><br>
         167-169 Great Portland Street, 5th Floor,<br>
         London, W1W 5PF<br><br>
-        📧 <a href="mailto:Tunzsoft@gmail.com">Tunzsoft@gmail.com</a>
+        <span class="footer-mail-icon"><svg viewBox="0 0 24 24" width="13" height="13" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#111827" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 6-10 7L2 6"></path></svg></span> <a href="mailto:Tunzsoft@gmail.com">Tunzsoft@gmail.com</a>
       </div>
     </div>
     <div class="footer-col">
@@ -926,6 +941,14 @@ const PRICING_BODY = `
     </div>
   </div>
 </footer>
+
+<!-- Mail Float -->
+<a class="mail-float" href="mailto:Tunzsoft@gmail.com" title="Email us" aria-label="Email us">
+  <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+    <path d="m22 6-10 7L2 6"></path>
+  </svg>
+</a>
 
 <!-- WhatsApp Float -->
 <a class="whatsapp-float" href="https://wa.me/2349125174767" target="_blank" rel="noopener noreferrer" title="Chat on WhatsApp" aria-label="Chat on WhatsApp">
