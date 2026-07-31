@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 // Pricing page markup and styles follow the same pattern as the marketing
 // landing page (src/app/page.tsx): the original static design is ported
 // as plain HTML/CSS strings and mounted via dangerouslySetInnerHTML so the
@@ -525,9 +527,14 @@ const PRICING_STYLE = `
   .pricing-help-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
   .pricing-help-dot { position: absolute; border-radius: 50%; }
   .pricing-help-dot.d1 { width: 200px; height: 200px; background: var(--blue); top: 0; right: 0; z-index: -1; opacity: .95; }
-  .pricing-help-dot.d2 { width: 24px; height: 24px; background: #22D3EE; top: 10px; left: 90px; }
-  .pricing-help-dot.d3 { width: 22px; height: 22px; background: var(--blue); left: 0; top: 110px; }
-  .pricing-help-dot.d4 { width: 20px; height: 20px; background: #FB923C; right: 10px; bottom: 40px; }
+  .pricing-help-dot.d2 { width: 24px; height: 24px; background: #22D3EE; top: 10px; left: 90px; animation: floatDot 3.4s ease-in-out infinite; }
+  .pricing-help-dot.d3 { width: 22px; height: 22px; background: var(--blue); left: 0; top: 110px; animation: floatDot 4.2s ease-in-out infinite .4s; }
+  .pricing-help-dot.d4 { width: 20px; height: 20px; background: #FB923C; right: 10px; bottom: 40px; animation: floatDot 3.8s ease-in-out infinite .8s; }
+
+  @keyframes floatDot {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
 
   @media (max-width: 900px) {
     .pricing-grid { grid-template-columns: 1fr; }
@@ -958,7 +965,38 @@ const PRICING_BODY = `
 </a>
 `;
 
+const PRICING_SCRIPT = `
+  // Scroll-in reveal animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll('.pricing-card, .comparison-wrap, .pricing-help-text, .pricing-help-visual').forEach((el, i) => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = \`opacity .5s ease \${(i % 3) * 0.1}s, transform .5s ease \${(i % 3) * 0.1}s\`;
+    observer.observe(el);
+  });
+`;
+
 export default function Pricing() {
+  // Re-run the pricing page's scroll-reveal animations after the markup is
+  // mounted. Injected as a real <script> element because React ignores
+  // <script> tags set via dangerouslySetInnerHTML.
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.text = PRICING_SCRIPT;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: PRICING_STYLE }} />

@@ -237,10 +237,11 @@ const LANDING_STYLE = `
   .stat-card {
     border: 1.5px solid var(--border); border-radius: 14px;
     padding: 36px 28px; text-align: center;
-    transition: box-shadow .2s;
+    transition: box-shadow .25s, transform .25s;
   }
-  .stat-card:hover { box-shadow: 0 6px 24px rgba(26,86,219,.12); }
-  .stat-icon { font-size: 2rem; margin-bottom: 14px; }
+  .stat-card:hover { box-shadow: 0 10px 28px rgba(26,86,219,.14); transform: translateY(-4px); }
+  .stat-icon { font-size: 2rem; margin-bottom: 14px; transition: transform .25s; }
+  .stat-card:hover .stat-icon { transform: scale(1.15) rotate(-4deg); }
   .stat-number { font-size: 2.6rem; font-weight: 900; color: var(--text-main); margin-bottom: 8px; }
   .stat-label { font-size: .93rem; color: var(--text-muted); line-height: 1.5; }
 
@@ -1899,29 +1900,29 @@ const LANDING_BODY = `
   <div class="stats-grid">
     <div class="stat-card">
       <div class="stat-icon">🌍</div>
-      <div class="stat-number">787</div>
+      <div class="stat-number" data-target="787">787</div>
       <div class="stat-label">Schools use RGS around the world</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon">👩‍🏫</div>
-      <div class="stat-number">12,969</div>
+      <div class="stat-number" data-target="12969">12,969</div>
       <div class="stat-label">Teachers using RGS to process their results</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon">🎓</div>
-      <div class="stat-number">146,000</div>
+      <div class="stat-number" data-target="146000">146,000</div>
       <div class="stat-label">Students get their results in the shortest possible time</div>
     </div>
   </div>
   <div class="stats-grid-2" style="margin-top:22px;">
     <div class="stat-card">
       <div class="stat-icon">📱</div>
-      <div class="stat-number">43,000</div>
+      <div class="stat-number" data-target="43000">43,000</div>
       <div class="stat-label">Parents access results easily from their mobile devices</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon">🌐</div>
-      <div class="stat-number">5</div>
+      <div class="stat-number" data-target="5">5</div>
       <div class="stat-label">Countries with active RGS-powered schools</div>
     </div>
   </div>
@@ -2133,12 +2134,46 @@ const LANDING_SCRIPT = `
     });
   }, { threshold: 0.15 });
 
-  document.querySelectorAll('.card, .benefit-card, .stat-card, .feature-split').forEach(el => {
+  document.querySelectorAll('.card, .benefit-card, .stat-card, .feature-split, .testimonial-card, .section-title, .join-inner, .partner-logo').forEach((el, i) => {
     el.style.opacity = '0';
     el.style.transform = 'translateY(20px)';
-    el.style.transition = 'opacity .5s ease, transform .5s ease';
+    el.style.transition = \`opacity .5s ease \${(i % 6) * 0.06}s, transform .5s ease \${(i % 6) * 0.06}s\`;
     observer.observe(el);
   });
+
+  // ── Number count-up animation (Statistics section) ──────────
+  function animateCount(el) {
+    const target = parseInt(el.getAttribute('data-target'), 10);
+    if (isNaN(target)) return;
+    const duration = 1600;
+    const start = performance.now();
+    function step(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const value = Math.floor(eased * target);
+      el.textContent = value.toLocaleString('en-US');
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        el.textContent = target.toLocaleString('en-US');
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  const countEls = document.querySelectorAll('.stat-number[data-target]');
+  countEls.forEach(el => { el.textContent = '0'; });
+
+  const countObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !e.target.dataset.counted) {
+        e.target.dataset.counted = 'true';
+        animateCount(e.target);
+      }
+    });
+  }, { threshold: 0.4 });
+
+  countEls.forEach(el => countObserver.observe(el));
 
   // ── Trust logo carousel ──────────────────────────────────
 let trustCurrent = 0;
