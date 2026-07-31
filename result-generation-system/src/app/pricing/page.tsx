@@ -521,7 +521,7 @@ const PRICING_STYLE = `
     width: 550px; height: 550px; border-radius: 50%; overflow: hidden;
     display: flex; align-items: center; justify-content: center;
     background: var(--bg-soft); border: 2px dashed var(--border);
-    position: relative; left: -4px; top: -14px; margin-top:2px; color: var(--text-muted);
+    position: relative; left: -8px; top: -17px; margin-top: 7px; color: var(--text-muted);
     font-size: .85rem; text-align: center;
   }
   .pricing-help-photo img { width: 90%; height: 80%; object-fit: cover; object-position: center; display: block; animation: floatDot 3.8s ease-in-out infinite .8s }
