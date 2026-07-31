@@ -524,12 +524,8 @@ const PRICING_STYLE = `
     position: absolute; left: 10px; top: 10px; color: var(--text-muted);
     font-size: .85rem; text-align: center;
   }
-  .pricing-help-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-  .pricing-help-dot { position: absolute; border-radius: 50%; }
-  .pricing-help-dot.d1 { width: 200px; height: 200px; background: var(--blue); top: 0; right: 0; z-index: -1; opacity: .95; }
-  .pricing-help-dot.d2 { width: 24px; height: 24px; background: #22D3EE; top: 10px; left: 90px; animation: floatDot 3.4s ease-in-out infinite; }
-  .pricing-help-dot.d3 { width: 22px; height: 22px; background: var(--blue); left: 0; top: 110px; animation: floatDot 4.2s ease-in-out infinite .4s; }
-  .pricing-help-dot.d4 { width: 20px; height: 20px; background: #FB923C; right: 10px; bottom: 40px; animation: floatDot 3.8s ease-in-out infinite .8s; }
+  .pricing-help-photo img { width: 200%; height: 200%; object-fit: cover; object-position: center; display: block; animation: floatDot 3.8s ease-in-out infinite .8s }
+
 
   @keyframes floatDot {
     0%, 100% { transform: translateY(0); }
