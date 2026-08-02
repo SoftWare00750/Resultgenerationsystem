@@ -91,7 +91,11 @@ function RegisterPageInner() {
       const res = await authService.requestAdminSignupCode(form.email);
       setCodeSent(true);
       setCooldown(res.cooldownSeconds || RESEND_COOLDOWN_SECONDS);
-      toast.success('Verification code sent — check your email');
+      if (res.devMode) {
+        toast.warning('Email is not configured on the server — check the backend logs for your code.', { duration: 8000 });
+      } else {
+        toast.success('Verification code sent — check your email');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Could not send verification code');
     } finally {

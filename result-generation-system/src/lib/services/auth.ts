@@ -90,7 +90,7 @@ export const authService = {
 
   // ── Admin/School Owner/School Proprietor: email verification during signup ──
 
-  async requestAdminSignupCode(email: string): Promise<{ message: string; cooldownSeconds: number }> {
+  async requestAdminSignupCode(email: string): Promise<{ message: string; devMode?: boolean; cooldownSeconds: number }> {
     return api.post('/admin-signup/request-code', { email }, { skipAuth: true });
   },
 

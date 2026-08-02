@@ -2,8 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────────
+   Gilroy — primary typeface (Bold / Extra Bold weights).
+   Gilroy is a commercial font, so its files aren't bundled in this repo.
+   Drop your licensed .woff2 files into /public/fonts/ using the exact
+   names below — see /public/fonts/README.md for details. Until then the
+   browser falls back to Inter (loaded via next/font) so nothing breaks.
+   ───────────────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: "Gilroy";
+  src: url("/fonts/Gilroy-Bold.woff2") format("woff2"),
+       url("/fonts/Gilroy-Bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gilroy";
+  src: url("/fonts/Gilroy-ExtraBold.woff2") format("woff2"),
+       url("/fonts/Gilroy-ExtraBold.woff") format("woff");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
+    --font-gilroy: "Gilroy", var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
     --background: 0 0% 100%;
     --foreground: 0 0% 7%;
     --card: 0 0% 100%;
@@ -50,7 +75,16 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; font-feature-settings: "rlig" 1, "calt" 1; }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: var(--font-gilroy);
+    font-weight: 700; /* Gilroy Bold */
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-gilroy);
+    font-weight: 800; /* Gilroy Extra Bold */
+  }
 }
 
 input[type="number"]::-webkit-inner-spin-button,

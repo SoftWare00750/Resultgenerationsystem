@@ -10,7 +10,7 @@ const LANDING_STYLE = `
   /* ===== RESET & BASE ===== */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; color: #111827; background: #131313; }
+  body { font-family: var(--font-gilroy, 'Gilroy'), 'Segoe UI', Arial, sans-serif; font-weight: 700; color: #111827; background: #131313; }
   a { text-decoration: none; color: inherit; }
 
   /* ===== STICKY FOOTER (removes white gap below footer on short pages) ===== */
@@ -458,7 +458,7 @@ const LANDING_STYLE = `
 }
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-gilroy, 'Gilroy'), 'Segoe UI', system-ui, -apple-system, sans-serif;
   color: var(--text-primary);
   background: #131313;
   line-height: 1.6;
@@ -1997,7 +1997,7 @@ const LANDING_BODY = `
         </div>
         <span>Result Generation System</span>
       </div>
-      <p class="footer-tagline">RGS is a product of TunzSoft — built to power accurate, stress-free result processing for schools across Africa and beyond.</p>
+      <p class="footer-tagline">RGS is a product of TD Soft — built to power accurate, stress-free result processing for schools across Africa and beyond.</p>
       <div class="footer-address">
         <strong style="color:#94A3B8;">Nigeria:</strong><br>
         3, Egbedi Close, Off Ladoke Akintola Boulevard,<br>
@@ -2005,7 +2005,7 @@ const LANDING_BODY = `
         <strong style="color:#94A3B8;">UK:</strong><br>
         167-169 Great Portland Street, 5th Floor,<br>
         London, W1W 5PF<br><br>
-         <span class="footer-mail-icon"><svg viewBox="0 0 24 24" width="13" height="13" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#111827" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 6-10 7L2 6"></path></svg></span> <a href="mailto:Tunzsoft@gmail.com">Tunzsoft@gmail.com</a>
+         <span class="footer-mail-icon"><svg viewBox="0 0 24 24" width="13" height="13" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#111827" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 6-10 7L2 6"></path></svg></span> <a href="mailto:tdsoft01@gmail.com">tdsoft01@gmail.com</a>
       </div>
     </div>
     <div class="footer-col">
@@ -2037,7 +2037,7 @@ const LANDING_BODY = `
     </div>
   </div>
   <div class="footer-bottom">
-    <span>© 2025 Result Generation System — TunzSoft. All rights reserved.</span>
+    <span>© 2025 Result Generation System — TD Soft. All rights reserved.</span>
     <div class="footer-social">
       <a href="#" class="social-icon social-facebook" aria-label="Facebook" title="Facebook">
         <svg viewBox="0 0 320 512" xmlns="http://www.w3.org/2000/svg"><path d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z"/></svg>
@@ -2056,7 +2056,7 @@ const LANDING_BODY = `
 </footer>
 
 <!-- Mail Float -->
-<a class="mail-float" href="mailto:Tunzsoft@gmail.com" title="Email us" aria-label="Email us">
+<a class="mail-float" href="mailto:tdsoft01@gmail.com" title="Email us" aria-label="Email us">
   <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <rect x="2" y="4" width="20" height="16" rx="2"></rect>
     <path d="m22 6-10 7L2 6"></path>
