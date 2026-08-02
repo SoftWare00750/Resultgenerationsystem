@@ -179,11 +179,11 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          {/* Demo credentials */}
+          {/* Admin/School Owner/School Proprietor section */}
           <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <Shield className="h-3.5 w-3.5" />
-              Admin Section
+              Admin/School Owner/School Proprietor Section
             </div>
             <div className="space-y-1.5">
               <button
@@ -191,10 +191,10 @@ export default function LoginPage() {
                 onClick={() => router.push('/auth/admin')}
                 className="w-full text-left text-sm px-3 py-2 rounded-lg bg-background border hover:border-primary/50 transition-colors"
               >
-                <span className="font-medium"> Go To Admin SignIn</span>
+                <span className="font-medium"> Go To Admin/School Owner/School Proprietor Sign In</span>
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">Go To Admin Section to register teachers & parents with auth codes.</p>
+            <p className="text-xs text-muted-foreground">Go to the Admin/School Owner/School Proprietor section to register teachers &amp; parents with auth codes.</p>
           </div>
         </div>
       </div>

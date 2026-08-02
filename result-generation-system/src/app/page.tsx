@@ -1556,7 +1556,7 @@ const LANDING_BODY = `
   </div>
   <div class="nav-cta">
      <a href="/auth/login" class="btn-outline">Login</a>
-    <a href="/auth/register" class="btn-solid">Get Started for Free</a>
+    <a href="/auth/register?role=admin&plan=starter" class="btn-solid">Get Started for Free</a>
   </div>
 </nav>
 
@@ -1700,7 +1700,7 @@ const LANDING_BODY = `
       </div>
     </div>
     <div class="feature-text">
-      <h2>School Administrator</h2>
+      <h2>Admin/School Owner/School Proprietor</h2>
       <p>RGS provides a comprehensive result management system that helps you efficiently coordinate result entry, sign-off, and distribution — all while reducing administrative overhead.</p>
       <ul>
         <li>Centralised result approval and publishing workflow</li>

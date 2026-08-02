@@ -59,6 +59,10 @@ export const authService = {
       schoolAddress?: string;
       schoolMotto?: string;
       signatureDataUrl?: string;
+      // Admin/School Owner/School Proprietor only:
+      plan?: string;
+      paymentReference?: string;
+      studentCount?: number;
     }
   ): Promise<User> {
     const body = {
@@ -73,12 +77,25 @@ export const authService = {
       schoolAddress: extras?.schoolAddress,
       schoolMotto: extras?.schoolMotto,
       signatureDataUrl: extras?.signatureDataUrl,
+      plan: extras?.plan,
+      paymentReference: extras?.paymentReference,
+      studentCount: extras?.studentCount,
     };
 
     const data = await api.post<AuthResponse>('/auth/register', body, { skipAuth: true });
     setToken(data.token);
     localStorage.setItem('rgs_current_user', JSON.stringify(mapUser(data.user)));
     return mapUser(data.user);
+  },
+
+  // ── Admin/School Owner/School Proprietor: email verification during signup ──
+
+  async requestAdminSignupCode(email: string): Promise<{ message: string; cooldownSeconds: number }> {
+    return api.post('/admin-signup/request-code', { email }, { skipAuth: true });
+  },
+
+  async verifyAdminSignupCode(email: string, code: string): Promise<{ verified: boolean }> {
+    return api.post('/admin-signup/verify-code', { email, code }, { skipAuth: true });
   },
 
   async getCurrentUser(): Promise<User | null> {

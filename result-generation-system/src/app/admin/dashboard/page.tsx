@@ -106,7 +106,7 @@ export default function AdminDashboard() {
           </div>
           <div className="hidden sm:flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
             <BarChart2 className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Admin Portal</span>
+            <span className="text-sm font-medium">Admin/School Owner/School Proprietor Portal</span>
           </div>
         </div>
 

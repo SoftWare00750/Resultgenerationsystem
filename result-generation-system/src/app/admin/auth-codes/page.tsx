@@ -175,20 +175,18 @@ export default function AuthCodesPage() {
                   <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">
-                        <span className="flex items-center gap-2"><Shield className="h-3.5 w-3.5 text-slate-600" />Admin</span>
-                      </SelectItem>
                       <SelectItem value="teacher">Teacher</SelectItem>
                       <SelectItem value="parent">Parent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                {selectedRole === "admin" && (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600 flex items-start gap-2">
-                    <Shield className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <span>Admin codes grant full system access. Only share with trusted personnel.</span>
-                  </div>
-                )}
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600 flex items-start gap-2">
+                  <Shield className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    Admin/School Owner/School Proprietor accounts no longer use pre-issued codes &mdash;
+                    they verify their email and add payment details directly on the registration page.
+                  </span>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
@@ -233,7 +231,7 @@ export default function AuthCodesPage() {
                   <SelectTrigger className="w-[130px]"><SelectValue placeholder="All roles" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="admin">Admin/School Owner/School Proprietor</SelectItem>
                     <SelectItem value="teacher">Teacher</SelectItem>
                     <SelectItem value="parent">Parent</SelectItem>
                   </SelectContent>

@@ -20,6 +20,12 @@ interface DashboardLayoutProps {
   role: UserRole;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin/School Owner/School Proprietor',
+  teacher: 'Teacher',
+  parent: 'Parent',
+};
+
 export function DashboardLayout({ children, role }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -93,7 +99,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white truncate">Result System</p>
-            <p className="text-xs text-white/60 capitalize">{role} Portal</p>
+            <p className="text-xs text-white/60">{ROLE_LABELS[role] || role} Portal</p>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-white/70 hover:text-white">
             <X className="h-5 w-5" />
@@ -128,7 +134,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
         <div className="rounded-lg bg-muted/50 px-3 py-2.5">
           <p className="text-sm font-semibold truncate">{user?.name}</p>
           <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-          <span className="inline-block mt-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full capitalize">{user?.role}</span>
+          <span className="inline-block mt-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{ROLE_LABELS[user?.role || ''] || user?.role}</span>
         </div>
         <Button variant="outline" size="sm" className="w-full" onClick={handleLogout}>
           <LogOut className="mr-2 h-3.5 w-3.5" />
@@ -158,8 +164,8 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1">
-            <h2 className="text-sm font-semibold text-muted-foreground capitalize hidden md:block">
-              {role} Portal
+            <h2 className="text-sm font-semibold text-muted-foreground hidden md:block">
+              {ROLE_LABELS[role] || role} Portal
             </h2>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">

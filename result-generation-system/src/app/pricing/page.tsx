@@ -475,6 +475,8 @@ const PRICING_STYLE = `
     flex-shrink: 0; width: 18px; height: 18px; color: var(--blue);
   }
   .pricing-feature-list .tick svg { width: 100%; height: 100%; }
+  .pricing-feature-list li.coming-soon-row { opacity: .6; }
+  .pricing-feature-list li.coming-soon-row em { font-style: normal; font-size: .78rem; color: var(--text-muted); margin-left: 4px; }
   .pricing-feature-list li.placeholder-row {
     height: 18px;
   }
@@ -578,7 +580,7 @@ const PRICING_BODY = `
   </div>
   <div class="nav-cta">
      <a href="/auth/login" class="btn-outline">Login</a>
-    <a href="/auth/register" class="btn-solid">Get Started for Free</a>
+    <a href="/auth/register?role=admin&plan=starter" class="btn-solid">Get Started for Free</a>
   </div>
 </nav>
 
@@ -612,10 +614,10 @@ const PRICING_BODY = `
       <div class="pricing-card-name">School starter</div>
       <div class="pricing-card-desc">For new and small schools that need to simplify fees management and efficiently track student progress.</div>
       <div class="pricing-card-label">Starting from</div>
-      <div class="pricing-card-price">&#8358; 1,000</div>
-      <div class="pricing-card-unit">per student per term</div>
-      <div class="pricing-card-note">Price is free for up to 50 students</div>
-      <a href="/auth/register" class="pricing-card-cta">Get started for free</a>
+      <div class="pricing-card-price">&#8358;2,000</div>
+      <div class="pricing-card-unit">per month</div>
+      <div class="pricing-card-note">Free for up to 10 students &mdash; payment details required at signup</div>
+      <a href="/auth/register?role=admin&plan=starter" class="pricing-card-cta">Get started for free</a>
       <hr class="pricing-card-divider">
       <ul class="pricing-feature-list">
         <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Unlimited students</li>
@@ -638,10 +640,10 @@ const PRICING_BODY = `
       <div class="pricing-card-name">School standard</div>
       <div class="pricing-card-desc">For Growing Schools: Simplify Fee Management, Track Student Progress, and Communicate Efficiently with Parents.</div>
       <div class="pricing-card-label">Starting from</div>
-      <div class="pricing-card-price">&#8358;2,000</div>
-      <div class="pricing-card-unit">per student per term</div>
-      <div class="pricing-card-note">Price reduces as the number of students increase</div>
-      <a href="/auth/register" class="pricing-card-cta">Start free trial</a>
+      <div class="pricing-card-price">&#8358;3,000</div>
+      <div class="pricing-card-unit">per student per month</div>
+      <div class="pricing-card-note">Free trial for up to 5 students. Rate reduces as students increase past 10 &mdash; payment details required at signup</div>
+      <a href="/auth/register?role=admin&plan=standard" class="pricing-card-cta">Start free trial</a>
       <hr class="pricing-card-divider">
       <ul class="pricing-feature-list">
         <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Unlimited students</li>
@@ -650,8 +652,8 @@ const PRICING_BODY = `
         <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Dashboard</li>
         <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Attendance management</li>
         <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Communication</li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>CBT (Quizzes, Assignment, Exams)</li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Lesson plan</li>
+        <li class="coming-soon-row"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>CBT (Quizzes, Assignment, Exams) <em>(coming soon)</em></li>
+        <li class="coming-soon-row"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Lesson plan <em>(coming soon)</em></li>
         <li class="placeholder-row"><span class="tick-empty"></span></li>
         <li class="placeholder-row"><span class="tick-empty"></span></li>
         <li class="placeholder-row"><span class="tick-empty"></span></li>
@@ -664,10 +666,10 @@ const PRICING_BODY = `
       <div class="pricing-card-name">School premium</div>
       <div class="pricing-card-desc">Perfect for schools who want to collect and manage Fees, conduct CBT Assessments, create and track Lesson plans.</div>
       <div class="pricing-card-label">Starting from</div>
-      <div class="pricing-card-price">&#8358;3,000</div>
-      <div class="pricing-card-unit">per student per term</div>
-      <div class="pricing-card-note">Price reduces as the number of students increase</div>
-      <a href="/auth/register" class="pricing-card-cta">Start free trial</a>
+      <div class="pricing-card-price">&#8358;4,000</div>
+      <div class="pricing-card-unit">per student per month</div>
+      <div class="pricing-card-note">Free trial for up to 8 students. Rate reduces as students increase past 10 &mdash; payment details required at signup</div>
+      <a href="/auth/register?role=admin&plan=premium" class="pricing-card-cta">Start free trial</a>
       <hr class="pricing-card-divider">
       <ul class="pricing-feature-list">
         <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Unlimited students</li>
@@ -676,12 +678,12 @@ const PRICING_BODY = `
         <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Dashboard</li>
         <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Attendance management</li>
         <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Communication</li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>CBT (Quizzes, Assignment, Exams)</li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Lesson plan</li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Expenses tracking</li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Staff Payroll Management</li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Stores and Inventory Management</li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>AI</li>
+        <li class="coming-soon-row"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>CBT (Quizzes, Assignment, Exams) <em>(coming soon)</em></li>
+        <li class="coming-soon-row"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Lesson plan <em>(coming soon)</em></li>
+        <li class="coming-soon-row"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Expenses tracking <em>(coming soon)</em></li>
+        <li class="coming-soon-row"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Staff Payroll Management <em>(coming soon)</em></li>
+        <li class="coming-soon-row"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Stores and Inventory Management <em>(coming soon)</em></li>
+        <li class="coming-soon-row"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>AI <em>(coming soon)</em></li>
       </ul>
     </div>
 

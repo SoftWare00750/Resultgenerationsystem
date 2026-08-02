@@ -70,19 +70,19 @@ export default function AdminLoginPage() {
               />
             </div>
             <div>
-              <h1 className="text-xl font-bold leading-tight">Admin Portal</h1>
+              <h1 className="text-xl font-bold leading-tight">Admin/School Owner/School Proprietor Portal</h1>
               <p className="text-xs text-muted-foreground">
                 Result Generation System
               </p>
             </div>
           </div>
 
-          {/* Admin badge */}
+          {/* Admin/School Owner/School Proprietor badge */}
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
             <Shield className="h-4 w-4 text-slate-600 shrink-0" />
             <div>
               <p className="text-sm font-medium text-slate-700">
-                Administrator Sign In
+                Admin/School Owner/School Proprietor Sign In
               </p>
               <p className="text-xs text-slate-500">
                 Restricted access — admins only
@@ -141,7 +141,7 @@ export default function AdminLoginPage() {
                   Signing in…
                 </span>
               ) : (
-                "Sign in as Admin"
+                "Sign in as Admin/School Owner/School Proprietor"
               )}
             </Button>
           </form>
