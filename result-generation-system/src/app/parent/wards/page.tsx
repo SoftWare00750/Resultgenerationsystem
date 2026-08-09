@@ -117,14 +117,18 @@ export default function ParentWardsPage() {
         return;
       }
 
-      await studentsService.createStudent({
+      const saved = await studentsService.createStudent({
         ...formData,
         parentId: user.$id,
         guardianName: user.name,
         guardianPhone: user.phone || "",
       });
 
-      toast.success("Ward registered successfully");
+      if (saved.storageSource === 'sheets_fallback') {
+        toast.warning('Ward saved to backup storage — the main database is full. It will still show up everywhere as normal.');
+      } else {
+        toast.success("Ward registered successfully");
+      }
       setDialogOpen(false);
       resetForm();
       fetchWards();

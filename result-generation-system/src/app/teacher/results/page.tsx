@@ -259,7 +259,7 @@ export default function TeacherResultsPage() {
     const overallGradeInfo = resultsService.calculateGrade(calculatedAvgScore);
 
     try {
-      await resultsService.createResult({
+      const saved = await resultsService.createResult({
         studentId:       selectedStudent.$id,
         studentName:     selectedStudent.name,
         admissionNumber: selectedStudent.admissionNumber,
@@ -282,7 +282,11 @@ export default function TeacherResultsPage() {
         club:            formData.club,
         age:             formData.age,
       });
-      toast.success('Result saved successfully');
+      if (saved.storageSource === 'sheets_fallback') {
+        toast.warning('Result saved to backup storage — the main database is full. It will still show up everywhere as normal.');
+      } else {
+        toast.success('Result saved successfully');
+      }
       setDialogOpen(false);
       resetForm();
       fetchData();

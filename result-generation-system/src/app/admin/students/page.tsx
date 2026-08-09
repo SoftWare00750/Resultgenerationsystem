@@ -77,8 +77,12 @@ export default function StudentsPage() {
         await studentsService.updateStudent(editingStudent.$id, formData);
         toast.success('Student updated successfully');
       } else {
-        await studentsService.createStudent(formData);
-        toast.success('Student created successfully');
+        const saved = await studentsService.createStudent(formData);
+        if (saved.storageSource === 'sheets_fallback') {
+          toast.warning('Student saved to backup storage — the main database is full. It will still show up everywhere as normal.');
+        } else {
+          toast.success('Student created successfully');
+        }
       }
       setDialogOpen(false);
       resetForm();

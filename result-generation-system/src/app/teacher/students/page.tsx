@@ -156,7 +156,10 @@ export default function TeacherStudentsPage() {
         };
 
         try {
-          await studentsService.createStudent(formData);
+          const saved = await studentsService.createStudent(formData);
+          if (saved.storageSource === 'sheets_fallback') {
+            toast.warning('Student saved to backup storage — the main database is full. It will still show up everywhere as normal.');
+          }
         } catch(e) { console.warn("Backend creation error, routing straight to localStorage."); }
 
         updatedStudentsList.push(newStudentItem);

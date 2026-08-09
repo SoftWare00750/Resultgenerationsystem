@@ -35,6 +35,7 @@ interface BackendStudent {
   photo_url?: string;
   created_at: string;
   updated_at?: string;
+  _source?: 'sheets_fallback';
 }
 
 function mapStudent(s: BackendStudent): Student {
@@ -52,6 +53,7 @@ function mapStudent(s: BackendStudent): Student {
     // keep photo in a compatible spot — the UI accesses it via student.photo
     ...(s.photo_url ? { photo: s.photo_url } : {}),
     createdAt: s.created_at,
+    storageSource: s._source === 'sheets_fallback' ? 'sheets_fallback' : 'database',
   } as Student & { photo?: string };
 }
 

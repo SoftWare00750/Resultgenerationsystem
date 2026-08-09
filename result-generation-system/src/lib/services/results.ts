@@ -36,6 +36,7 @@ interface BackendResult {
   house?: string;
   club?: string;
   age?: string;
+  _source?: 'sheets_fallback';
 }
 
 function mapResult(r: BackendResult): Result {
@@ -66,6 +67,7 @@ function mapResult(r: BackendResult): Result {
     house: r.house,
     club: r.club,
     age: r.age,
+    storageSource: r._source === 'sheets_fallback' ? 'sheets_fallback' : 'database',
   };
 }
 

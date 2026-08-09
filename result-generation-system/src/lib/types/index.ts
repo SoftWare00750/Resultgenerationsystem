@@ -22,6 +22,10 @@ export interface Student {
   guardianPhone?: string;
   address?: string;
   createdAt: string;
+  // Set by the backend when the record was written to the Google Sheets
+  // overflow store (i.e. Postgres was out of storage at the time). Absent
+  // for normal, DB-backed records.
+  storageSource?: 'database' | 'sheets_fallback';
 }
 
 export interface Subject {
@@ -68,6 +72,10 @@ export interface Result {
   house?: string;
   club?: string;
   age?: string;
+  // Set by the backend when the record was written to the Google Sheets
+  // overflow store (i.e. Postgres was out of storage at the time). Absent
+  // for normal, DB-backed records.
+  storageSource?: 'database' | 'sheets_fallback';
 }
 
 export type ClassCategory = 'Nursery' | 'Kindergarten' | 'Primary' | 'JSS' | 'SSS';
