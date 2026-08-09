@@ -6,6 +6,7 @@
 
 import { api, setToken, clearToken, getToken } from '../api';
 import { User, UserRole } from '../types';
+import { initCacheKey, clearCacheKey, clearAllCache } from '../secureCache';
 
 // Shape returned by the backend login/register endpoints
 interface AuthResponse {
@@ -41,6 +42,7 @@ export const authService = {
   async login(email: string, password: string): Promise<User> {
     const data = await api.post<AuthResponse>('/auth/login', { email, password }, { skipAuth: true });
     setToken(data.token);
+    await initCacheKey(data.token);
     // Persist user for getCurrentUser
     localStorage.setItem('rgs_current_user', JSON.stringify(mapUser(data.user)));
     return mapUser(data.user);
@@ -84,6 +86,7 @@ export const authService = {
 
     const data = await api.post<AuthResponse>('/auth/register', body, { skipAuth: true });
     setToken(data.token);
+    await initCacheKey(data.token);
     localStorage.setItem('rgs_current_user', JSON.stringify(mapUser(data.user)));
     return mapUser(data.user);
   },
@@ -102,6 +105,7 @@ export const authService = {
     if (typeof window === 'undefined') return null;
     const token = getToken();
     if (!token) return null;
+    await initCacheKey(token);
     try {
       const data = await api.get<{ user: BackendUser }>('/auth/me');
       const user = mapUser(data.user);
@@ -116,6 +120,8 @@ export const authService = {
   async logout(): Promise<void> {
     clearToken();
     localStorage.removeItem('rgs_current_user');
+    clearCacheKey();
+    await clearAllCache();
   },
 
   // ── Admin: auth codes ──────────────────────────────────────────────────────

@@ -5,9 +5,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/button';
 import { authService } from '@/lib/services/auth';
-import {
-  Home, Users, GraduationCap, FileText, LogOut, Key,
-  BookOpen, Calendar, UserCircle, Menu, X, ChevronRight, Settings,
+import { Home, Users, GraduationCap, FileText, LogOut, Key,
+  BookOpen, Calendar, UserCircle, Menu, X, ChevronRight, Settings, Building2, HardDrive, ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -24,6 +23,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin/School Owner/School Proprietor',
   teacher: 'Teacher',
   parent: 'Parent',
+  central_admin: 'Central Admin',
 };
 
 export function DashboardLayout({ children, role }: DashboardLayoutProps) {
@@ -45,6 +45,14 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
 
   const getNavItems = () => {
     switch (role) {
+      case 'central_admin':
+        return [
+          { icon: Home,      label: 'Overview',    href: '/central_admin/dashboard' },
+          { icon: Building2, label: 'Schools',      href: '/central_admin/schools' },
+          { icon: Users,     label: 'All Users',    href: '/central_admin/users' },
+          { icon: HardDrive, label: 'Storage',      href: '/central_admin/storage' },
+          { icon: Settings,  label: 'Platform Settings', href: '/central_admin/settings' },
+        ];
       case 'admin':
         return [
           { icon: Home,         label: 'Dashboard',     href: '/admin/dashboard' },
@@ -80,6 +88,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
     admin:   'from-slate-900 to-slate-800',
     teacher: 'from-blue-900 to-blue-800',
     parent:  'from-emerald-900 to-emerald-800',
+    central_admin: 'from-purple-950 to-purple-900',
   };
 
   const Sidebar = () => (

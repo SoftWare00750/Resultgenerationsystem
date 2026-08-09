@@ -5,6 +5,9 @@
 
 import { api } from '../api';
 import { Result, Subject, GRADING_SCALE } from '../types';
+import { getDecrypted, setEncrypted, clearByPrefix } from '../secureCache';
+
+const CACHE_KEY_ALL = 'results:all';
 
 interface BackendResult {
   id: string;
@@ -92,6 +95,7 @@ export const resultsService = {
       age: data.age,
     };
     const res = await api.post<BackendResult>('/results', body);
+    await clearByPrefix('results:');
     return mapResult(res);
   },
 
@@ -108,6 +112,7 @@ export const resultsService = {
     if (data.club !== undefined) body.club = data.club;
     if (data.age !== undefined) body.age = data.age;
     const res = await api.patch<BackendResult>(`/results/${resultId}`, body);
+    await clearByPrefix('results:');
     return mapResult(res);
   },
 
@@ -120,24 +125,51 @@ export const resultsService = {
   },
 
   async getResultsByStudent(studentId: string): Promise<Result[]> {
-    const rows = await api.get<BackendResult[]>(`/results?studentId=${studentId}`);
-    return rows.map(mapResult);
+    const key = `results:student:${studentId}`;
+    try {
+      const rows = await api.get<BackendResult[]>(`/results?studentId=${studentId}`);
+      const mapped = rows.map(mapResult);
+      await setEncrypted(key, mapped);
+      return mapped;
+    } catch (err) {
+      const cached = await getDecrypted<Result[]>(key);
+      if (cached) return cached;
+      throw err;
+    }
   },
 
   async getResultsByClass(className: string, term?: string, session?: string): Promise<Result[]> {
     let qs = `/results?class=${encodeURIComponent(className)}`;
     if (term) qs += `&term=${encodeURIComponent(term)}`;
     if (session) qs += `&session=${encodeURIComponent(session)}`;
-    const rows = await api.get<BackendResult[]>(qs);
-    return rows.map(mapResult);
+    const key = `results:class:${className}:${term || ''}:${session || ''}`;
+    try {
+      const rows = await api.get<BackendResult[]>(qs);
+      const mapped = rows.map(mapResult);
+      await setEncrypted(key, mapped);
+      return mapped;
+    } catch (err) {
+      const cached = await getDecrypted<Result[]>(key);
+      if (cached) return cached;
+      throw err;
+    }
   },
 
   async getAllResults(): Promise<Result[]> {
-    const rows = await api.get<BackendResult[]>('/results');
-    return rows.map(mapResult);
+    try {
+      const rows = await api.get<BackendResult[]>('/results');
+      const mapped = rows.map(mapResult);
+      await setEncrypted(CACHE_KEY_ALL, mapped);
+      return mapped;
+    } catch (err) {
+      const cached = await getDecrypted<Result[]>(CACHE_KEY_ALL);
+      if (cached) return cached;
+      throw err;
+    }
   },
 
   async deleteResult(resultId: string): Promise<void> {
     await api.del(`/results/${resultId}`);
+    await clearByPrefix('results:');
   },
 };
