@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'teacher' | 'parent';
+export type UserRole = 'admin' | 'teacher' | 'parent' | 'central_admin';
 
 export interface User {
   $id: string;
