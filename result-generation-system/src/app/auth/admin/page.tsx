@@ -30,14 +30,14 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       const user = await authService.login(email, password);
-      if (user.role !== "admin") {
+      if (user.role !== "admin" && user.role !== "central_admin") {
         toast.error("This portal is for administrators only.");
         await authService.logout();
         return;
       }
       setUser(user);
       toast.success(`Welcome back, ${user.name}!`);
-      router.push("/admin/dashboard");
+      router.push(user.role === "central_admin" ? "/central_admin/dashboard" : "/admin/dashboard");
     } catch (error: any) {
       toast.error(error.message || "Login failed");
     } finally {
