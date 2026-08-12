@@ -47,13 +47,24 @@ import { getOrdinalSuffix } from "@/lib/utils";
 
 interface AssessmentSubject {
   name: string;
-  cat1: number;
-  cat2: number;
-  exam: number;
+  // CAT 1 / CAT 2 breakdown — Notes (5) + Assignment (5) + Test (10) = 20 max
+  notes: number;
+  assignment: number;
+  test: number;
+  // Examination breakdown — CAT 1 Total + CAT 2 Total (40 max) + Exam (60 max)
+  cat1Total: number;
+  cat2Total: number;
+  examScore: number;
   score: number;
   grade: string;
   remark: string;
 }
+
+const emptySubject = (name: string): AssessmentSubject => ({
+  name, notes: 0, assignment: 0, test: 0,
+  cat1Total: 0, cat2Total: 0, examScore: 0,
+  score: 0, grade: '', remark: '',
+});
 
 // ─── Radio rating row ────────────────────────────────────────────────────────
 function RatingRow({
@@ -144,7 +155,7 @@ export default function TeacherResultsPage() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [formData, setFormData] = useState({
     term: "First" as Term,
-    resultType: "Examination" as ResultType,
+    resultType: "CAT1" as ResultType,
     teacherComment: "",
     principalComment: "",
     house: "",
@@ -210,23 +221,41 @@ export default function TeacherResultsPage() {
     } catch { /* ignore */ }
     if (!subjectNames.length) subjectNames = getSubjectsByCategory(student.class);
 
-    setSubjects(subjectNames.map(name => ({ name, cat1: 0, cat2: 0, exam: 0, score: 0, grade: '', remark: '' })));
+    setSubjects(subjectNames.map(name => emptySubject(name)));
+  };
+
+  // Per-field max marks for each breakdown field
+  const FIELD_MAX: Record<string, number> = {
+    notes: 5, assignment: 5, test: 10,
+    cat1Total: 20, cat2Total: 20, examScore: 60,
   };
 
   // ── Score change ────────────────────────────────────────────────────────────
   const handleScoreChange = (
     index: number,
-    field: 'cat1' | 'cat2' | 'exam',
+    field: 'notes' | 'assignment' | 'test' | 'cat1Total' | 'cat2Total' | 'examScore',
     raw: string,
   ) => {
-    const val = Math.max(0, parseFloat(raw) || 0);
+    const max = FIELD_MAX[field];
+    const val = Math.min(max, Math.max(0, parseFloat(raw) || 0));
     const updated = [...subjects];
-    updated[index][field] = val;
-    const total = Math.min(100, updated[index].cat1 + updated[index].cat2 + updated[index].exam);
-    updated[index].score = total;
-    const gradeInfo = resultsService.calculateGrade(total);
-    updated[index].grade  = gradeInfo.grade;
-    updated[index].remark = gradeInfo.remark;
+    updated[index] = { ...updated[index], [field]: val };
+    const s = updated[index];
+
+    if (formData.resultType === 'Examination') {
+      const total = Math.min(100, s.cat1Total + s.cat2Total + s.examScore);
+      s.score = total;
+      const gradeInfo = resultsService.calculateGrade(total);
+      s.grade = gradeInfo.grade;
+      s.remark = gradeInfo.remark;
+    } else {
+      // CAT1 or CAT2
+      const total = Math.min(20, s.notes + s.assignment + s.test);
+      s.score = total;
+      const gradeInfo = resultsService.calculateCATGrade(total);
+      s.grade = gradeInfo.grade;
+      s.remark = gradeInfo.remark;
+    }
     setSubjects(updated);
   };
 
@@ -237,7 +266,7 @@ export default function TeacherResultsPage() {
     if (subjects.some(s => s.name.toLowerCase() === name.toLowerCase())) {
       toast.error('Subject already added'); return;
     }
-    setSubjects([...subjects, { name, cat1: 0, cat2: 0, exam: 0, score: 0, grade: '', remark: '' }]);
+    setSubjects([...subjects, emptySubject(name)]);
     setNewSubjectName('');
   };
 
@@ -299,7 +328,7 @@ export default function TeacherResultsPage() {
 
   const resetForm = () => {
     setSelectedStudent(null);
-    setFormData({ term: 'First', resultType: 'Examination', teacherComment: '', principalComment: '', house: '', club: '', age: '' });
+    setFormData({ term: 'First', resultType: 'CAT1', teacherComment: '', principalComment: '', house: '', club: '', age: '' });
     setAttendance({ opened: 140, present: 0, absent: 0 });
     setAffective(buildDefaultRatings(AFFECTIVE_TRAITS));
     setPsychomotor(buildDefaultRatings(PSYCHOMOTOR_SKILLS));
@@ -446,10 +475,27 @@ export default function TeacherResultsPage() {
                           </div>
                           <div className="space-y-2">
                             <Label>Result Type *</Label>
-                            <Select value={formData.resultType} onValueChange={v => setFormData(f => ({ ...f, resultType: v as ResultType }))}>
+                            <Select
+                              value={formData.resultType}
+                              onValueChange={v => {
+                                const type = v as ResultType;
+                                setFormData(f => ({ ...f, resultType: type }));
+                                setSubjects(prev => prev.map(s => {
+                                  if (type === 'Examination') {
+                                    const total = Math.min(100, s.cat1Total + s.cat2Total + s.examScore);
+                                    const g = resultsService.calculateGrade(total);
+                                    return { ...s, score: total, grade: g.grade, remark: g.remark };
+                                  }
+                                  const total = Math.min(20, s.notes + s.assignment + s.test);
+                                  const g = resultsService.calculateCATGrade(total);
+                                  return { ...s, score: total, grade: g.grade, remark: g.remark };
+                                }));
+                              }}
+                            >
                               <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="Midterm">Midterm</SelectItem>
+                                <SelectItem value="CAT1">CAT 1</SelectItem>
+                                <SelectItem value="CAT2">CAT 2</SelectItem>
                                 <SelectItem value="Examination">Examination</SelectItem>
                               </SelectContent>
                             </Select>
@@ -510,16 +556,30 @@ export default function TeacherResultsPage() {
                       </Button>
                     </div>
 
+                    <p className="text-xs text-muted-foreground -mt-1">
+                      {formData.resultType === 'Examination'
+                        ? 'Enter each subject\u2019s CAT 1 Total (max 20) + CAT 2 Total (max 20) — together max 40 — and Exam score (max 60). Total = 100.'
+                        : `Enter ${formData.resultType === 'CAT1' ? 'CAT 1' : 'CAT 2'} scores — Notes (max 5) + Assignment (max 5) + Test (max 10). Total = 20.`}
+                    </p>
+
                     {/* Score table */}
                     <div className="rounded-md border overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead className="min-w-[140px]">Subject</TableHead>
-                            <TableHead className="w-[80px] text-center">CAT 1</TableHead>
-                            <TableHead className="w-[80px] text-center">CAT 2</TableHead>
-                            {formData.resultType === 'Examination' && (
-                              <TableHead className="w-[80px] text-center">EXAM</TableHead>
+                            {formData.resultType === 'Examination' ? (
+                              <>
+                                <TableHead className="w-[90px] text-center">CAT 1 Total<br /><span className="text-xs text-muted-foreground">(max 20)</span></TableHead>
+                                <TableHead className="w-[90px] text-center">CAT 2 Total<br /><span className="text-xs text-muted-foreground">(max 20)</span></TableHead>
+                                <TableHead className="w-[80px] text-center">Exam<br /><span className="text-xs text-muted-foreground">(max 60)</span></TableHead>
+                              </>
+                            ) : (
+                              <>
+                                <TableHead className="w-[80px] text-center">Notes<br /><span className="text-xs text-muted-foreground">(max 5)</span></TableHead>
+                                <TableHead className="w-[90px] text-center">Assignment<br /><span className="text-xs text-muted-foreground">(max 5)</span></TableHead>
+                                <TableHead className="w-[80px] text-center">Test<br /><span className="text-xs text-muted-foreground">(max 10)</span></TableHead>
+                              </>
                             )}
                             <TableHead className="w-[72px] text-center font-bold bg-muted/50">Total</TableHead>
                             <TableHead className="w-[60px] text-center">Grade</TableHead>
@@ -531,19 +591,36 @@ export default function TeacherResultsPage() {
                           {subjects.map((s, i) => (
                             <TableRow key={`${s.name}-${i}`}>
                               <TableCell className="font-medium text-sm">{s.name}</TableCell>
-                              <TableCell>
-                                <Input type="number" min="0" max="100" className="h-8 text-center"
-                                  value={s.cat1 || ''} onChange={e => handleScoreChange(i, 'cat1', e.target.value)} />
-                              </TableCell>
-                              <TableCell>
-                                <Input type="number" min="0" max="100" className="h-8 text-center"
-                                  value={s.cat2 || ''} onChange={e => handleScoreChange(i, 'cat2', e.target.value)} />
-                              </TableCell>
-                              {formData.resultType === 'Examination' && (
-                                <TableCell>
-                                  <Input type="number" min="0" max="100" className="h-8 text-center"
-                                    value={s.exam || ''} onChange={e => handleScoreChange(i, 'exam', e.target.value)} />
-                                </TableCell>
+                              {formData.resultType === 'Examination' ? (
+                                <>
+                                  <TableCell>
+                                    <Input type="number" min="0" max="20" className="h-8 text-center"
+                                      value={s.cat1Total || ''} onChange={e => handleScoreChange(i, 'cat1Total', e.target.value)} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input type="number" min="0" max="20" className="h-8 text-center"
+                                      value={s.cat2Total || ''} onChange={e => handleScoreChange(i, 'cat2Total', e.target.value)} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input type="number" min="0" max="60" className="h-8 text-center"
+                                      value={s.examScore || ''} onChange={e => handleScoreChange(i, 'examScore', e.target.value)} />
+                                  </TableCell>
+                                </>
+                              ) : (
+                                <>
+                                  <TableCell>
+                                    <Input type="number" min="0" max="5" className="h-8 text-center"
+                                      value={s.notes || ''} onChange={e => handleScoreChange(i, 'notes', e.target.value)} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input type="number" min="0" max="5" className="h-8 text-center"
+                                      value={s.assignment || ''} onChange={e => handleScoreChange(i, 'assignment', e.target.value)} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input type="number" min="0" max="10" className="h-8 text-center"
+                                      value={s.test || ''} onChange={e => handleScoreChange(i, 'test', e.target.value)} />
+                                  </TableCell>
+                                </>
                               )}
                               <TableCell className="text-center font-bold bg-muted/30">{s.score}</TableCell>
                               <TableCell className="text-center font-bold text-green-800">{s.grade || '—'}</TableCell>

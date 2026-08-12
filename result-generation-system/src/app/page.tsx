@@ -77,6 +77,61 @@ const LANDING_STYLE = `
   }
   .btn-solid:hover { background: var(--blue-dark); }
 
+  /* ===== NAV — MOBILE HAMBURGER ===== */
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 40px; height: 40px;
+    background: none; border: none; cursor: pointer;
+    z-index: 210;
+  }
+  .nav-toggle span {
+    display: block; width: 24px; height: 2.5px;
+    background: var(--text-main); border-radius: 2px;
+    transition: transform .25s ease, opacity .25s ease;
+  }
+  .nav-toggle.open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+  .nav-toggle.open span:nth-child(2) { opacity: 0; }
+  .nav-toggle.open span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+  @media (max-width: 900px) {
+    .nav-toggle { display: flex; }
+    .nav-links {
+      display: flex; flex-direction: column; align-items: stretch;
+      position: fixed; top: 68px; left: 0; right: 0; z-index: 150;
+      background: #fff; border-bottom: 1px solid var(--border);
+      box-shadow: 0 12px 24px rgba(15,23,42,.1);
+      padding: 8px 20px 16px; gap: 2px;
+      font-size: 1rem;
+      transform: translateY(-8px);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease, visibility .2s ease;
+      max-height: calc(100vh - 68px); overflow-y: auto;
+    }
+    .nav-links.mobile-open {
+      opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0);
+    }
+    .nav-links a { padding: 12px 4px; border-bottom: 1px solid var(--bg-soft); }
+    .nav-item { flex-direction: column; align-items: stretch; }
+    .dropdown-menu {
+      position: static; margin-top: 0; opacity: 1; visibility: visible;
+      transform: none; box-shadow: none; border: none; border-radius: 0;
+      padding: 0 0 0 14px; display: none;
+    }
+    .nav-item.mobile-expanded .dropdown-menu { display: block; }
+    .nav-item.mobile-expanded .has-arrow::after { content: ' ▴'; }
+    .dropdown-menu a { padding: 10px 4px; font-size: .9rem; }
+    .nav-cta { display: none; }
+    .nav-links .nav-cta {
+      display: flex !important; flex-direction: column; gap: 10px;
+      padding-top: 14px; margin-top: 8px; border-top: 1px solid var(--bg-soft);
+    }
+    .btn-outline, .btn-solid { text-align: center; }
+  }
+
   /* ===== HERO (RGS1) ===== */
   #hero {
     background: var(--bg-grad);
@@ -399,14 +454,35 @@ const LANDING_STYLE = `
 
   /* ===== RESPONSIVE ===== */
   @media (max-width: 900px) {
-    nav { padding: 0 70px; }
-    .nav-links { display: none; }
+    nav { padding: 0 20px; }
     section { padding: 56px 20px; }
     .grid-3, .stats-grid, .footer-grid { grid-template-columns: 1fr; }
     .grid-2, .stats-grid-2 { grid-template-columns: 1fr; }
     .feature-split, .feature-split.reverse { grid-template-columns: 1fr; direction: ltr; }
     .join-inner { flex-direction: column; padding: 40px 28px; }
     .join-visual { font-size: 5rem; }
+  }
+
+  @media (max-width: 480px) {
+    nav { padding: 0 14px; height: 60px; }
+    .nav-links { top: 60px; }
+    .nav-logo { font-size: 1.05rem; }
+    .nav-logo svg { width: 30px; height: 30px; }
+    section { padding: 40px 14px; }
+    #hero { padding: 44px 14px 0; min-height: auto; }
+    #hero h1 { font-size: 1.9rem; }
+    #hero p { font-size: 1rem; max-width: 100%; }
+    .hero-btns { flex-direction: column; width: 100%; }
+    .hero-btn-primary, .hero-btn-secondary { width: 100%; }
+    .hero-mockup { flex-direction: column; align-items: stretch; gap: 16px; }
+    .hero-mockup-card { max-width: 100% !important; margin-bottom: 0 !important; }
+    .section-title { font-size: 1.5rem; }
+    .join-text h2 { font-size: 1.6rem; }
+    .join-visual { display: none; }
+    .whatsapp-float, .mail-float { width: 46px; height: 46px; right: 16px; }
+    .whatsapp-float { bottom: 20px; }
+    .mail-float { bottom: 76px; }
+    .footer-bottom { flex-direction: column; gap: 14px; text-align: center; }
   }
 
 
@@ -1043,7 +1119,7 @@ address {
   height: 265px;
 }
 
-.benefit-card:hover {
+.benefit-card:hover, .benefit-card.is-active {
   box-shadow: 0 8px 36px rgba(26, 86, 219, 0.18);
   transform: translateY(-4px);
   border-color: var(--blue);
@@ -1078,7 +1154,7 @@ address {
   color: #fff;
 }
 
-.benefit-card:hover .hover-content {
+.benefit-card:hover .hover-content, .benefit-card.is-active .hover-content {
   opacity: 1;
 }
 
@@ -1477,7 +1553,6 @@ address {
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 900px) {
   .nav { padding: 12px 20px; }
-  .nav-links { display: none; }
   .section { padding: 44px 24px; }
   .hero { padding: 44px 24px 24px; }
   .hero h1 { font-size: 32px; }
@@ -1529,7 +1604,7 @@ const LANDING_BODY = `
 </svg>
       RGS
   </div>
-  <div class="nav-links">
+  <div class="nav-links" id="navLinksList">
     <a href="#benefits">Benefits</a>
     <div class="nav-item">
       <a href="#features" class="has-arrow">Features</a>
@@ -1554,10 +1629,13 @@ const LANDING_BODY = `
     <a href="#refer">Refer &amp; Earn</a>
     <a href="#partners">Partner Schools</a>
   </div>
-  <div class="nav-cta">
+  <div class="nav-cta" id="navCta">
      <a href="/auth/login" class="btn-outline">Login</a>
     <a href="/auth/register?role=admin&plan=starter" class="btn-solid">Get Started for Free</a>
   </div>
+  <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
 
 <!-- ===== RGS1 – HERO ===== -->
@@ -2190,6 +2268,67 @@ function goToSlide(index) {
 
 // Auto-advance every 4 seconds
 setInterval(() => goToSlide(trustCurrent + 1), 4000);
+
+// ── Mobile nav (hamburger) ────────────────────────────────
+const navToggle = document.getElementById('navToggle');
+const navLinksEl = document.getElementById('navLinksList');
+const navCtaEl = document.getElementById('navCta');
+const navEl = navToggle ? navToggle.closest('nav') : null;
+
+function closeMobileNav() {
+  navToggle && navToggle.classList.remove('open');
+  navLinksEl && navLinksEl.classList.remove('mobile-open');
+  document.querySelectorAll('.nav-item.mobile-expanded').forEach(el => el.classList.remove('mobile-expanded'));
+  // Put the login/get-started buttons back where they belong in the desktop layout
+  if (navCtaEl && navEl && navCtaEl.parentElement !== navEl) {
+    navEl.appendChild(navCtaEl);
+  }
+}
+
+if (navToggle) {
+  navToggle.addEventListener('click', () => {
+    const isOpen = navToggle.classList.toggle('open');
+    navLinksEl && navLinksEl.classList.toggle('mobile-open', isOpen);
+    navToggle.setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) {
+      // Move the CTA buttons inside the mobile dropdown panel
+      if (navCtaEl && navLinksEl) navLinksEl.appendChild(navCtaEl);
+    } else {
+      closeMobileNav();
+    }
+  });
+}
+
+// On mobile, tapping a "has-arrow" link expands its dropdown instead of navigating
+document.querySelectorAll('.nav-item').forEach(item => {
+  const trigger = item.querySelector('.has-arrow');
+  if (!trigger) return;
+  trigger.addEventListener('click', (e) => {
+    if (window.innerWidth <= 900) {
+      e.preventDefault();
+      item.classList.toggle('mobile-expanded');
+    }
+  });
+});
+
+// Close the mobile menu when a real nav link is tapped, or the viewport is resized back up
+document.querySelectorAll('.nav-links a:not(.has-arrow)').forEach(a => {
+  a.addEventListener('click', closeMobileNav);
+});
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 900) closeMobileNav();
+});
+
+// ── Touch-friendly benefit cards (tap to reveal, since :hover doesn't fire on touch) ──
+if (window.matchMedia('(hover: none)').matches) {
+  document.querySelectorAll('.benefit-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const wasActive = card.classList.contains('is-active');
+      document.querySelectorAll('.benefit-card.is-active').forEach(c => c.classList.remove('is-active'));
+      if (!wasActive) card.classList.add('is-active');
+    });
+  });
+}
 `;
 
 export default function Home() {

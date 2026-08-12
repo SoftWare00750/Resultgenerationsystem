@@ -12,6 +12,7 @@
 import {
   Result,
   GRADING_SCALE,
+  CAT_GRADING_SCALE,
   AFFECTIVE_TRAITS,
   PSYCHOMOTOR_SKILLS,
   RATING_SCALE_NOTES,
@@ -210,9 +211,10 @@ export async function generateResultPDF(result: Result): Promise<Blob> {
   y += HEADER_H + 3;
 
   // Title bar
-  const isMidterm = result.resultType === "Midterm";
-  const titleText = isMidterm
-    ? `MID TERM REPORT — ${s(result.term).toUpperCase()} TERM`
+  const isCAT = result.resultType === "CAT1" || result.resultType === "CAT2";
+  const catLabel = result.resultType === "CAT1" ? "CAT 1" : "CAT 2";
+  const titleText = isCAT
+    ? `${catLabel} REPORT — ${s(result.term).toUpperCase()} TERM`
     : `${s(result.term).toUpperCase()} TERM STUDENT'S PERFORMANCE REPORT`;
 
   doc.setFontSize(9.5);
@@ -266,13 +268,15 @@ export async function generateResultPDF(result: Result): Promise<Blob> {
 
   checkBreak(30);
   const COL = {
-    subject: CW * 0.28, cat1: CW * 0.09, cat2: CW * 0.09,
-    exam: CW * 0.09, total: CW * 0.09, grade: CW * 0.08,
+    subject: CW * 0.25, col1: CW * 0.10, col2: CW * 0.10,
+    col3: CW * 0.10, total: CW * 0.09, grade: CW * 0.08,
     pos: CW * 0.09, remark: CW * 0.19,
   };
   const ROW_H = 6, TH_H = 7;
   const widths = Object.values(COL);
-  const headers = ["Subject","CAT 1","CAT 2","EXAM","Total","Grade","Position","Remark"];
+  const headers = isCAT
+    ? ["Subject","Notes(5)","Assign(5)","Test(10)","Total(20)","Grade","Position","Remark"]
+    : ["Subject","CAT1(20)","CAT2(20)","Exam(60)","Total(100)","Grade","Position","Remark"];
 
   let cx = ML;
   rect(cx, y, CW, TH_H, C_PRIMARY);
@@ -290,16 +294,27 @@ export async function generateResultPDF(result: Result): Promise<Blob> {
     doc.setFont("helvetica","normal"); doc.setFontSize(7.5); setColor(C_TEXT);
     let xx = ML;
     const sa = sub as any;
-    const cells = [
-      s(sub?.name,"Subject"),
-      s(sa?.cat1 != null ? sa.cat1 : ""),
-      s(sa?.cat2 != null ? sa.cat2 : ""),
-      s(sa?.exam != null ? sa.exam : ""),
-      s(sub?.score),
-      s(sub?.grade),
-      "—",
-      s(sub?.remark),
-    ];
+    const cells = isCAT
+      ? [
+          s(sub?.name,"Subject"),
+          s(sa?.notes != null ? sa.notes : ""),
+          s(sa?.assignment != null ? sa.assignment : ""),
+          s(sa?.test != null ? sa.test : ""),
+          s(sub?.score),
+          s(sub?.grade),
+          "—",
+          s(sub?.remark),
+        ]
+      : [
+          s(sub?.name,"Subject"),
+          s(sa?.cat1Total != null ? sa.cat1Total : ""),
+          s(sa?.cat2Total != null ? sa.cat2Total : ""),
+          s(sa?.examScore != null ? sa.examScore : ""),
+          s(sub?.score),
+          s(sub?.grade),
+          "—",
+          s(sub?.remark),
+        ];
     widths.forEach((w,i) => {
       const align = (i===0||i===7) ? "left" : "center";
       const tx = align==="center" ? xx+w/2 : xx+2;
@@ -325,10 +340,10 @@ export async function generateResultPDF(result: Result): Promise<Blob> {
 
   rect(leftX, leftY, leftW, 6, C_HEADER_BG, C_BORDER);
   doc.setFont("helvetica","bold"); doc.setFontSize(8); setColor(C_PRIMARY);
-  text(isMidterm ? "Mid Term Performance Summary" : "Performance Summary", leftX+leftW/2, leftY+4, {align:"center"});
+  text(isCAT ? `${catLabel} Performance Summary` : "Performance Summary", leftX+leftW/2, leftY+4, {align:"center"});
   leftY += 6;
 
-  const totalObtainable = (result.subjects?.length ?? 0) * 100;
+  const totalObtainable = (result.subjects?.length ?? 0) * (isCAT ? 20 : 100);
   const summaryRows = [
     ["Total Obtainable", String(totalObtainable)],
     ["Total Obtained",   s(result.totalScore, "0")],
@@ -351,7 +366,7 @@ export async function generateResultPDF(result: Result): Promise<Blob> {
 
   // ── LEFT: Affective + Psychomotor (exam only) ─────────────────────────────
 
-  if (!isMidterm) {
+  if (!isCAT) {
     const drawRatingTable = (
       sx:number, sy:number, sw:number,
       title:string,
@@ -413,20 +428,20 @@ export async function generateResultPDF(result: Result): Promise<Blob> {
   text("Grading Scale",rightX+rightW/2,rightY+4,{align:"center"});
   rightY += 6;
 
-  GRADING_SCALE.forEach(({min,max,grade,remark},idx)=>{
+  (isCAT ? CAT_GRADING_SCALE : GRADING_SCALE).forEach(({min,max,grade,remark},idx)=>{
     const bg = idx%2===0 ? C_WHITE : C_LIGHT;
     rect(rightX,rightY,rightW,5,bg,C_BORDER);
     doc.setFont("helvetica","bold"); doc.setFontSize(7); setColor(C_PRIMARY);
     text(grade,rightX+3,rightY+3.5);
     doc.setFont("helvetica","normal"); setColor(C_TEXT);
-    text(`(${min}–${max}%) ${remark}`,rightX+9,rightY+3.5);
+    text(isCAT ? `(${min}–${max}) ${remark}` : `(${min}–${max}%) ${remark}`,rightX+9,rightY+3.5);
     rightY += 5;
   });
   rightY += 4;
 
   // ── RIGHT: Rating key ──────────────────────────────────────────────────────
 
-  if (!isMidterm) {
+  if (!isCAT) {
     rect(rightX,rightY,rightW,6,C_PRIMARY);
     doc.setFont("helvetica","bold"); doc.setFontSize(7); setColor(C_WHITE);
     text("Rating Key",rightX+rightW/2,rightY+4,{align:"center"});

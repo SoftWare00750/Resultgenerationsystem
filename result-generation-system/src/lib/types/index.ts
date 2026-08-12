@@ -33,10 +33,18 @@ export interface Subject {
   score: number;
   grade?: string;
   remark?: string;
+  // CAT 1 / CAT 2 breakdown (out of 5 / 5 / 10 => 20 max)
+  notes?: number;
+  assignment?: number;
+  test?: number;
+  // Examination breakdown — CAT 1 total + CAT 2 total (40 max) + Exam (60 max)
+  cat1Total?: number;
+  cat2Total?: number;
+  examScore?: number;
 }
 
 export type Term = 'First' | 'Second' | 'Third';
-export type ResultType = 'Midterm' | 'Examination';
+export type ResultType = 'CAT1' | 'CAT2' | 'Examination';
 
 export interface Attendance {
   opened: number;
@@ -115,6 +123,21 @@ export const GRADING_SCALE = [
   { min: 45, max: 54,  grade: 'D', remark: 'Fair' },
   { min: 40, max: 44,  grade: 'E', remark: 'Pass' },
   { min: 0,  max: 39,  grade: 'F', remark: 'Fail' },
+] as const;
+
+/**
+ * Grading scale for a single CAT (CAT 1 or CAT 2).
+ * Each CAT = Notes (5) + Assignment (5) + Test (10) = 20 marks max, and is
+ * graded against the 0-40 band scale requested (40=A, 30=B, 20=C, 10=D, 5=E, 0=F).
+ * CAT 1 + CAT 2 together also cap at 40 marks in the Examination result type.
+ */
+export const CAT_GRADING_SCALE = [
+  { min: 40, max: 40, grade: 'A', remark: 'Excellent' },
+  { min: 30, max: 39, grade: 'B', remark: 'Very Good' },
+  { min: 20, max: 29, grade: 'C', remark: 'Good' },
+  { min: 10, max: 19, grade: 'D', remark: 'Fair' },
+  { min: 5,  max: 9,  grade: 'E', remark: 'Pass' },
+  { min: 0,  max: 4,  grade: 'F', remark: 'Fail' },
 ] as const;
 
 export const CLASS_OPTIONS = [
@@ -255,10 +278,10 @@ export const RATING_SCALE_NOTES = [
 ];
 
 export const HOUSE_OPTIONS = [
-  'Femi Awoniyi',
-  'Tafawa Balewa',
-  'Herbert Macaulay',
-  'Obafemi Awolowo',
+  'Red',
+  'Blue',
+  'Yellow',
+  'Green',
 ] as const;
 
 export const CLUB_OPTIONS = [

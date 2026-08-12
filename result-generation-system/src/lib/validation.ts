@@ -17,7 +17,7 @@ export const studentSchema = z.object({
 export const resultSchema = z.object({
   studentId: z.string().min(1, 'Student is required'),
   term: z.enum(['First', 'Second', 'Third']),
-  resultType: z.enum(['Midterm', 'Examination']),
+  resultType: z.enum(['CAT1', 'CAT2', 'Examination']),
   subjects: z.array(
     z.object({
       name: z.string(),

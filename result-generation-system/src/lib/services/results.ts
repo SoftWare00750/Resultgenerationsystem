@@ -4,7 +4,7 @@
  */
 
 import { api } from '../api';
-import { Result, Subject, GRADING_SCALE } from '../types';
+import { Result, Subject, GRADING_SCALE, CAT_GRADING_SCALE } from '../types';
 import { getDecrypted, setEncrypted, clearByPrefix } from '../secureCache';
 
 const CACHE_KEY_ALL = 'results:all';
@@ -74,6 +74,12 @@ function mapResult(r: BackendResult): Result {
 export const resultsService = {
   calculateGrade(score: number): { grade: string; remark: string } {
     const g = GRADING_SCALE.find((g) => score >= g.min && score <= g.max);
+    return g ? { grade: g.grade, remark: g.remark } : { grade: 'F', remark: 'Fail' };
+  },
+
+  /** Grade a single CAT (Notes + Assignment + Test, 20 marks max) against the 0-40 band scale. */
+  calculateCATGrade(score: number): { grade: string; remark: string } {
+    const g = CAT_GRADING_SCALE.find((g) => score >= g.min && score <= g.max);
     return g ? { grade: g.grade, remark: g.remark } : { grade: 'F', remark: 'Fail' };
   },
 
