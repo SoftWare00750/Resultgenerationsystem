@@ -128,16 +128,17 @@ export const GRADING_SCALE = [
 /**
  * Grading scale for a single CAT (CAT 1 or CAT 2).
  * Each CAT = Notes (5) + Assignment (5) + Test (10) = 20 marks max, and is
- * graded against the 0-40 band scale requested (40=A, 30=B, 20=C, 10=D, 5=E, 0=F).
- * CAT 1 + CAT 2 together also cap at 40 marks in the Examination result type.
+ * graded against the 0-20 band scale (20=A, 15=B, 10=C, 5=D, 3=E, 0=F).
+ * CAT 1 + CAT 2 together cap at 40 marks, then + Examination (60) = 100
+ * marks total in the Examination result type, graded on GRADING_SCALE above.
  */
 export const CAT_GRADING_SCALE = [
-  { min: 40, max: 40, grade: 'A', remark: 'Excellent' },
-  { min: 30, max: 39, grade: 'B', remark: 'Very Good' },
-  { min: 20, max: 29, grade: 'C', remark: 'Good' },
-  { min: 10, max: 19, grade: 'D', remark: 'Fair' },
-  { min: 5,  max: 9,  grade: 'E', remark: 'Pass' },
-  { min: 0,  max: 4,  grade: 'F', remark: 'Fail' },
+  { min: 20, max: 20, grade: 'A', remark: 'Excellent' },
+  { min: 15, max: 19, grade: 'B', remark: 'Very Good' },
+  { min: 10, max: 14, grade: 'C', remark: 'Good' },
+  { min: 5,  max: 9,  grade: 'D', remark: 'Fair' },
+  { min: 3,  max: 4,  grade: 'E', remark: 'Pass' },
+  { min: 0,  max: 2,  grade: 'F', remark: 'Fail' },
 ] as const;
 
 export const CLASS_OPTIONS = [

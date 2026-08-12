@@ -77,7 +77,7 @@ export const resultsService = {
     return g ? { grade: g.grade, remark: g.remark } : { grade: 'F', remark: 'Fail' };
   },
 
-  /** Grade a single CAT (Notes + Assignment + Test, 20 marks max) against the 0-40 band scale. */
+  /** Grade a single CAT (Notes + Assignment + Test, 20 marks max) against the 0-20 band scale. */
   calculateCATGrade(score: number): { grade: string; remark: string } {
     const g = CAT_GRADING_SCALE.find((g) => score >= g.min && score <= g.max);
     return g ? { grade: g.grade, remark: g.remark } : { grade: 'F', remark: 'Fail' };
