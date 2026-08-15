@@ -188,8 +188,12 @@ export default function TeacherResultsPage() {
         remoteStudents.push(...s);
       }
 
-      // Merge with local cache
-      const local: Student[] = JSON.parse(localStorage.getItem(LOCAL_STUDENTS_KEY) || '[]');
+      // Merge with local cache — excluding any "local_<timestamp>" placeholder
+      // students that never actually made it to the database (see
+      // teacher/students/page.tsx). Those have no real UUID, so Postgres
+      // rejects any result saved against them.
+      const local: Student[] = JSON.parse(localStorage.getItem(LOCAL_STUDENTS_KEY) || '[]')
+        .filter((s: Student) => !s.$id.startsWith('local_'));
       const merged = [...remoteStudents, ...local];
       const unique = merged.filter((s, i, arr) => arr.findIndex(x => x.$id === s.$id) === i);
       setStudents(unique);
@@ -197,7 +201,8 @@ export default function TeacherResultsPage() {
       const all = await resultsService.getAllResults().catch(() => []);
       setMyResults(all.filter((r: any) => r.createdBy === user.$id));
     } catch {
-      const local: Student[] = JSON.parse(localStorage.getItem(LOCAL_STUDENTS_KEY) || '[]');
+      const local: Student[] = JSON.parse(localStorage.getItem(LOCAL_STUDENTS_KEY) || '[]')
+        .filter((s: Student) => !s.$id.startsWith('local_'));
       setStudents(local);
     } finally {
       setLoading(false);

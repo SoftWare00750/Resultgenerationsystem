@@ -79,7 +79,21 @@ export default function TeacherStudentsPage() {
       }
 
       const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
-      const savedLocalStudents: ExtendedStudent[] = localData ? JSON.parse(localData) : [];
+      const rawLocalStudents: ExtendedStudent[] = localData ? JSON.parse(localData) : [];
+
+      // Purge any placeholder students left over from before student
+      // creation required a successful backend save (id starting with
+      // "local_"). These never existed in Postgres, so a result can never
+      // be attached to them — surface that to the teacher once so they
+      // know to re-add the student, instead of leaving a record around
+      // that looks normal but silently fails at result-save time.
+      const savedLocalStudents = rawLocalStudents.filter(s => !s.$id.startsWith('local_'));
+      if (savedLocalStudents.length !== rawLocalStudents.length) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(savedLocalStudents));
+        toast.warning(
+          'Removed one or more student records that were never actually saved to the database. Please re-add them.'
+        );
+      }
 
       const combined = [...allRemoteStudents, ...savedLocalStudents];
       const uniqueStudents = combined.filter(
@@ -137,33 +151,33 @@ export default function TeacherStudentsPage() {
 
       let updatedStudentsList = [...students];
 
+      // Student records MUST come from the backend, not be invented
+      // client-side: their id is a Postgres UUID that every other part of
+      // the system (results, transcripts, the parent portal) refers back
+      // to via a foreign key. A record that only exists in localStorage
+      // with a placeholder id like "local_<timestamp>" looks fine in this
+      // table, but silently breaks the moment anything tries to attach a
+      // result to it — Postgres rejects the id outright. So if the backend
+      // call fails, we report the real error instead of faking success.
       if (editingStudent) {
-        const updatedTarget: ExtendedStudent = { ...editingStudent, ...formData };
-        
-        try {
-          await studentsService.updateStudent(editingStudent.$id, formData);
-        } catch(e) { console.warn("Backend update error, saving locally."); }
+        const updated = await studentsService.updateStudent(editingStudent.$id, formData);
+        const updatedTarget: ExtendedStudent = { ...editingStudent, ...formData, ...updated };
 
         updatedStudentsList = updatedStudentsList.map(s => s.$id === editingStudent.$id ? updatedTarget : s);
         toast.success('Student updated successfully');
       } else {
-        const newStudentId = "local_" + Date.now().toString();
-        
+        const saved = await studentsService.createStudent(formData);
+        if (saved.storageSource === 'sheets_fallback') {
+          toast.warning('Student saved to backup storage — the main database is full. It will still show up everywhere as normal.');
+        } else {
+          toast.success('Student created successfully');
+        }
+
         const newStudentItem: ExtendedStudent = {
-          $id: newStudentId,
-          createdAt: new Date().toISOString(),
-          ...formData
+          ...formData,
+          ...saved, // real $id, createdAt, and any other server-assigned fields win
         };
-
-        try {
-          const saved = await studentsService.createStudent(formData);
-          if (saved.storageSource === 'sheets_fallback') {
-            toast.warning('Student saved to backup storage — the main database is full. It will still show up everywhere as normal.');
-          }
-        } catch(e) { console.warn("Backend creation error, routing straight to localStorage."); }
-
         updatedStudentsList.push(newStudentItem);
-        toast.success('Student created successfully');
       }
 
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedStudentsList));
@@ -173,7 +187,10 @@ export default function TeacherStudentsPage() {
       setDialogOpen(false);
       resetForm();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to save student data modifications');
+      toast.error(
+        error.message ||
+        'Could not save this student to the database. Please check your connection and try again — the student was not added.'
+      );
     }
   };
 
@@ -181,9 +198,7 @@ export default function TeacherStudentsPage() {
     if (!selectedStudent) return;
 
     try {
-      try {
-        await studentsService.deleteStudent(selectedStudent.$id);
-      } catch (e) { console.warn("Backend sync deletion bypassed."); }
+      await studentsService.deleteStudent(selectedStudent.$id);
 
       const updatedList = students.filter(s => s.$id !== selectedStudent.$id);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedList));
