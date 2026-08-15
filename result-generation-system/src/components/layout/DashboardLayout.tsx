@@ -70,6 +70,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
           { icon: GraduationCap, label: 'My Students',    href: '/teacher/students' },
           { icon: FileText,      label: 'Create Results', href: '/teacher/results' },
           { icon: BookOpen,      label: 'My Classes',     href: '/teacher/classes' },
+          { icon: UserCircle,    label: 'My Profile',     href: '/teacher/profile' },
         ];
       case 'parent':
         return [

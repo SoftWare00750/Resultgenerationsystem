@@ -14,6 +14,7 @@ export interface User {
   role?: string;
   phone?: string;
   assignedClasses?: string;
+  signatureUrl?: string;
   createdAt?: string;
 }
 

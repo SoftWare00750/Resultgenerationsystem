@@ -7,6 +7,7 @@
 import { api, setToken, clearToken, getToken } from '../api';
 import { User, UserRole } from '../types';
 import { initCacheKey, clearCacheKey, clearAllCache } from '../secureCache';
+import { setSignature } from '../storage';
 
 // Shape returned by the backend login/register endpoints
 interface AuthResponse {
@@ -27,6 +28,12 @@ interface BackendUser {
 }
 
 function mapUser(u: BackendUser): User {
+  // Keep the local signature cache (used synchronously by the PDF generator)
+  // in sync with whatever the backend has on file for this user, so a
+  // signature saved from another device still shows up here.
+  if (u.signature_url) {
+    setSignature(u.id, u.signature_url);
+  }
   return {
     $id: u.id,
     name: u.name,
@@ -34,6 +41,7 @@ function mapUser(u: BackendUser): User {
     role: u.role,
     phone: u.phone || '',
     assignedClasses: JSON.stringify(u.assigned_classes || []),
+    signatureUrl: u.signature_url || '',
     createdAt: u.created_at,
   };
 }
