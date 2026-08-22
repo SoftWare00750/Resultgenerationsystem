@@ -30,6 +30,7 @@ import { resultsService } from "@/lib/services/results";
 import { sessionsService } from "@/lib/services/sessions";
 import { classesService } from "@/lib/services/classes";
 import { downloadResultPDF } from "@/lib/services/pdf-generator";
+import { hydrateResultForPdf } from "@/lib/services/result-stats";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
 import {
@@ -40,7 +41,10 @@ import {
   Student, Result, Term, ResultType, Session,
   AFFECTIVE_TRAITS, PSYCHOMOTOR_SKILLS,
   HOUSE_OPTIONS, CLUB_OPTIONS, buildDefaultRatings,
-  getSubjectsByCategory,
+  getSubjectsByCategory, getReportStyle, ReportStyle,
+  ChecklistDomain, ChecklistMark, buildDefaultChecklist, CHECKLIST_MARK_KEY,
+  RatedDomain, buildDefaultRatedDomains, NURSERY_RATING_KEY,
+  GradingScaleVariant, MIDTERM_GRADING_SCALE, calculateGradeWithScale,
 } from "@/lib/types";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { getOrdinalSuffix } from "@/lib/utils";
@@ -52,9 +56,13 @@ interface AssessmentSubject {
   assignment: number;
   test: number;
   // Examination breakdown — CAT 1 Total + CAT 2 Total (40 max) + Exam (60 max)
+  // Nursery/Primary reuse cat1Total as a single "C.A." field (see UI below).
   cat1Total: number;
   cat2Total: number;
   examScore: number;
+  // Midterm — 1st C.A. + 2nd C.A. (10 max each, 20 max total)
+  midtermCA1: number;
+  midtermCA2: number;
   score: number;
   grade: string;
   remark: string;
@@ -63,6 +71,7 @@ interface AssessmentSubject {
 const emptySubject = (name: string): AssessmentSubject => ({
   name, notes: 0, assignment: 0, test: 0,
   cat1Total: 0, cat2Total: 0, examScore: 0,
+  midtermCA1: 0, midtermCA2: 0,
   score: 0, grade: '', remark: '',
 });
 
@@ -136,6 +145,113 @@ function RatingTable({
   );
 }
 
+// ─── Preschool checklist editor (E / S / N per item) ───────────────────────────
+function ChecklistEditor({
+  domains,
+  onChange,
+}: {
+  domains: ChecklistDomain[];
+  onChange: (domains: ChecklistDomain[]) => void;
+}) {
+  const setMark = (domainIdx: number, itemIdx: number, mark: ChecklistMark) => {
+    const next = domains.map((d, di) => {
+      if (di !== domainIdx) return d;
+      return { ...d, items: d.items.map((it, ii) => (ii === itemIdx ? { ...it, mark } : it)) };
+    });
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-4">
+      {domains.map((domain, di) => (
+        <div key={domain.title} className="rounded-md border overflow-hidden">
+          <div className="bg-green-900 text-white text-xs font-semibold px-3 py-2 uppercase tracking-wide">
+            {domain.title}
+          </div>
+          <table className="w-full text-sm">
+            <tbody>
+              {domain.items.map((item, ii) => (
+                <tr key={item.label} className="border-b last:border-0 hover:bg-muted/30">
+                  <td className="py-1.5 px-3 w-[70%]">{item.label}</td>
+                  {(['E', 'S', 'N'] as ChecklistMark[]).map((m) => (
+                    <td key={m} className="py-1.5 px-1 text-center w-[10%]">
+                      <button
+                        type="button"
+                        onClick={() => setMark(di, ii, m)}
+                        className={`h-6 w-6 rounded-full text-xs font-bold border transition-colors ${
+                          item.mark === m
+                            ? 'bg-green-800 text-white border-green-800'
+                            : 'bg-background text-muted-foreground border-input hover:bg-muted'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+      <p className="text-xs text-muted-foreground px-1">
+        {Object.entries(CHECKLIST_MARK_KEY).map(([k, v]) => `${k} = ${v}`).join('   ·   ')}
+      </p>
+    </div>
+  );
+}
+
+// ─── Nursery rated-domain editor (4-3-2-1 per item) ────────────────────────────
+function RatedDomainEditor({
+  domains,
+  onChange,
+}: {
+  domains: RatedDomain[];
+  onChange: (domains: RatedDomain[]) => void;
+}) {
+  const setRating = (domainIdx: number, itemIdx: number, rating: number) => {
+    const next = domains.map((d, di) => {
+      if (di !== domainIdx) return d;
+      return { ...d, items: d.items.map((it, ii) => (ii === itemIdx ? { ...it, rating } : it)) };
+    });
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-4">
+      {domains.map((domain, di) => (
+        <div key={domain.title} className="rounded-md border overflow-hidden">
+          <div className="bg-green-900 text-white text-xs font-semibold px-3 py-2 uppercase tracking-wide flex justify-between">
+            <span>{domain.title}</span>
+            <span className="flex gap-3">{[4, 3, 2, 1].map((n) => <span key={n} className="w-4 text-center">{n}</span>)}</span>
+          </div>
+          <table className="w-full text-sm">
+            <tbody>
+              {domain.items.map((item, ii) => (
+                <tr key={item.label} className="border-b last:border-0 hover:bg-muted/30">
+                  <td className="py-1.5 px-3 w-[64%]">{item.label}</td>
+                  {[4, 3, 2, 1].map((n) => (
+                    <td key={n} className="py-1.5 px-1 text-center w-[9%]">
+                      <input
+                        type="radio"
+                        name={`${domain.title}-${item.label}`}
+                        checked={item.rating === n}
+                        onChange={() => setRating(di, ii, n)}
+                        className="cursor-pointer accent-green-700"
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+      <p className="text-xs text-muted-foreground px-1">{NURSERY_RATING_KEY.join('   ·   ')}</p>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function TeacherResultsPage() {
   const { user } = useAuthStore();
@@ -161,11 +277,25 @@ export default function TeacherResultsPage() {
     house: "",
     club: "",
     age: "",
+    gender: "",
+    dob: "",
+    height: "",
+    weight: "",
+    favColor: "",
+    classSize: "",
+    gradingScaleVariant: "waec" as GradingScaleVariant,
   });
   const [attendance, setAttendance] = useState({ opened: 140, present: 0, absent: 0 });
   const [affective, setAffective] = useState<Record<string, number>>(buildDefaultRatings(AFFECTIVE_TRAITS));
   const [psychomotor, setPsychomotor] = useState<Record<string, number>>(buildDefaultRatings(PSYCHOMOTOR_SKILLS));
   const [subjects, setSubjects] = useState<AssessmentSubject[]>([]);
+  const [checklistDomains, setChecklistDomains] = useState<ChecklistDomain[]>(buildDefaultChecklist());
+  const [ratedDomains, setRatedDomains] = useState<RatedDomain[]>(buildDefaultRatedDomains());
+
+  // Which report-sheet layout this result will render as — drives which
+  // fields/tabs are shown below (see getReportStyle in lib/types).
+  const reportStyle: ReportStyle = getReportStyle(selectedStudent?.class || '', formData.resultType);
+  const isMidterm = formData.resultType === 'Midterm';
 
   const LOCAL_STUDENTS_KEY = "system_students_backup";
   const LOCAL_CLASSES_KEY  = "system_classes_subjects_backup";
@@ -232,13 +362,15 @@ export default function TeacherResultsPage() {
   // Per-field max marks for each breakdown field
   const FIELD_MAX: Record<string, number> = {
     notes: 5, assignment: 5, test: 10,
-    cat1Total: 20, cat2Total: 20, examScore: 60,
+    cat1Total: reportStyle === 'nursery' || reportStyle === 'primary' ? 40 : 20,
+    cat2Total: 20, examScore: 60,
+    midtermCA1: 10, midtermCA2: 10,
   };
 
   // ── Score change ────────────────────────────────────────────────────────────
   const handleScoreChange = (
     index: number,
-    field: 'notes' | 'assignment' | 'test' | 'cat1Total' | 'cat2Total' | 'examScore',
+    field: 'notes' | 'assignment' | 'test' | 'cat1Total' | 'cat2Total' | 'examScore' | 'midtermCA1' | 'midtermCA2',
     raw: string,
   ) => {
     const max = FIELD_MAX[field];
@@ -247,7 +379,18 @@ export default function TeacherResultsPage() {
     updated[index] = { ...updated[index], [field]: val };
     const s = updated[index];
 
-    if (formData.resultType === 'Examination') {
+    if (formData.resultType === 'Midterm') {
+      // Raw 1st + 2nd C.A. out of 20, graded against the 0-100 percentage
+      // band scale (Image 9) by converting to a percentage first.
+      const total = Math.min(20, s.midtermCA1 + s.midtermCA2);
+      s.score = total;
+      const pct = (total / 20) * 100;
+      const gradeInfo = calculateGradeWithScale(pct, MIDTERM_GRADING_SCALE);
+      s.grade = gradeInfo.grade;
+      s.remark = gradeInfo.remark;
+    } else if (formData.resultType === 'Examination') {
+      // Nursery/Primary only ever fill cat1Total (as a single C.A. field,
+      // max 40) + examScore; JSS/SS may use cat1Total+cat2Total (20 each).
       const total = Math.min(100, s.cat1Total + s.cat2Total + s.examScore);
       s.score = total;
       const gradeInfo = resultsService.calculateGrade(total);
@@ -283,14 +426,27 @@ export default function TeacherResultsPage() {
       toast.error('Select a student and ensure an active session exists');
       return;
     }
-    if (!subjects.length) { toast.error('Add at least one subject'); return; }
+    const isChecklistOnly = reportStyle === 'preschool' && !isMidterm;
+    if (!isChecklistOnly && !subjects.length) { toast.error('Add at least one subject'); return; }
 
     setSaving(true);
 
-    // Dynamically calculate averages and grades to prevent crashes during PDF generation
-    const calculatedTotalScore = subjects.reduce((s, sub) => s + (sub.score || 0), 0);
-    const calculatedAvgScore = subjects.length > 0 ? calculatedTotalScore / subjects.length : 0;
-    const overallGradeInfo = resultsService.calculateGrade(calculatedAvgScore);
+    // Dynamically calculate averages and grades to prevent crashes during PDF generation.
+    // Midterm scores are stored raw (out of 20 per subject) but graded/averaged as a
+    // percentage, to match the 0-100 band Midterm grading scale (Image 9).
+    let calculatedTotalScore = 0;
+    let calculatedAvgScore = 0;
+    let overallGrade = '';
+    if (!isChecklistOnly) {
+      calculatedTotalScore = subjects.reduce((s, sub) => s + (sub.score || 0), 0);
+      if (isMidterm) {
+        calculatedAvgScore = subjects.length ? (calculatedTotalScore / (subjects.length * 20)) * 100 : 0;
+        overallGrade = calculateGradeWithScale(calculatedAvgScore, MIDTERM_GRADING_SCALE).grade;
+      } else {
+        calculatedAvgScore = subjects.length ? calculatedTotalScore / subjects.length : 0;
+        overallGrade = resultsService.calculateGrade(calculatedAvgScore).grade;
+      }
+    }
 
     try {
       const saved = await resultsService.createResult({
@@ -301,20 +457,29 @@ export default function TeacherResultsPage() {
         term:            formData.term,
         session:         activeSession.year,
         resultType:      formData.resultType,
-        subjects,
+        subjects:        isChecklistOnly ? [] : subjects,
         totalScore:      calculatedTotalScore,
         averageScore:    calculatedAvgScore,
-        overallGrade:    overallGradeInfo.grade,
+        overallGrade,
         teacherComment:  formData.teacherComment,
         principalComment: formData.principalComment,
         published:       false,
         createdBy:       user.$id,
         attendance,
-        affectiveDomain: affective,
-        psychomotorSkills: psychomotor,
+        affectiveDomain: reportStyle === 'nursery' || isChecklistOnly ? undefined : affective,
+        psychomotorSkills: reportStyle === 'nursery' || isChecklistOnly ? undefined : psychomotor,
         house:           formData.house,
         club:            formData.club,
         age:             formData.age,
+        gender:          formData.gender,
+        dob:             formData.dob,
+        height:          formData.height,
+        weight:          formData.weight,
+        favColor:        formData.favColor,
+        classSize:       formData.classSize,
+        gradingScaleVariant: reportStyle === 'standard' ? formData.gradingScaleVariant : undefined,
+        checklistDomains: isChecklistOnly ? checklistDomains : undefined,
+        ratedDomains:    reportStyle === 'nursery' && !isMidterm ? ratedDomains : undefined,
       });
       if (saved.storageSource === 'sheets_fallback') {
         toast.warning('Result saved to backup storage — the main database is full. It will still show up everywhere as normal.');
@@ -333,11 +498,17 @@ export default function TeacherResultsPage() {
 
   const resetForm = () => {
     setSelectedStudent(null);
-    setFormData({ term: 'First', resultType: 'CAT1', teacherComment: '', principalComment: '', house: '', club: '', age: '' });
+    setFormData({
+      term: 'First', resultType: 'CAT1', teacherComment: '', principalComment: '',
+      house: '', club: '', age: '', gender: '', dob: '', height: '', weight: '',
+      favColor: '', classSize: '', gradingScaleVariant: 'waec',
+    });
     setAttendance({ opened: 140, present: 0, absent: 0 });
     setAffective(buildDefaultRatings(AFFECTIVE_TRAITS));
     setPsychomotor(buildDefaultRatings(PSYCHOMOTOR_SKILLS));
     setSubjects([]);
+    setChecklistDomains(buildDefaultChecklist());
+    setRatedDomains(buildDefaultRatedDomains());
     setNewSubjectName('');
     setActiveTab('student');
   };
@@ -376,7 +547,8 @@ export default function TeacherResultsPage() {
       const handleDownload = async (result: Result) => {
      setDownloading(result.$id);
      try {
-       await downloadResultPDF(result);
+       const hydrated = await hydrateResultForPdf(result);
+       await downloadResultPDF(hydrated);
        toast.success("PDF downloaded");
      } catch (e: any) {
        console.error("PDF error:", e);
@@ -486,6 +658,11 @@ export default function TeacherResultsPage() {
                                 const type = v as ResultType;
                                 setFormData(f => ({ ...f, resultType: type }));
                                 setSubjects(prev => prev.map(s => {
+                                  if (type === 'Midterm') {
+                                    const total = Math.min(20, s.midtermCA1 + s.midtermCA2);
+                                    const g = calculateGradeWithScale((total / 20) * 100, MIDTERM_GRADING_SCALE);
+                                    return { ...s, score: total, grade: g.grade, remark: g.remark };
+                                  }
                                   if (type === 'Examination') {
                                     const total = Math.min(100, s.cat1Total + s.cat2Total + s.examScore);
                                     const g = resultsService.calculateGrade(total);
@@ -501,7 +678,8 @@ export default function TeacherResultsPage() {
                               <SelectContent>
                                 <SelectItem value="CAT1">CAT 1</SelectItem>
                                 <SelectItem value="CAT2">CAT 2</SelectItem>
-                                <SelectItem value="Examination">Examination</SelectItem>
+                                <SelectItem value="Examination">Examination (Term Result)</SelectItem>
+                                <SelectItem value="Midterm">Midterm</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -536,8 +714,88 @@ export default function TeacherResultsPage() {
                           </div>
                         </div>
 
+                        {/* Bio fields used by the printed report sheet — which ones show
+                            up on the PDF depends on the class category (see Images 1-9) */}
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label>Gender</Label>
+                            <Select value={formData.gender} onValueChange={v => setFormData(f => ({ ...f, gender: v }))}>
+                              <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Male">Male</SelectItem>
+                                <SelectItem value="Female">Female</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Date of Birth</Label>
+                            <Input
+                              type="date"
+                              value={formData.dob}
+                              onChange={e => setFormData(f => ({ ...f, dob: e.target.value }))}
+                            />
+                          </div>
+                          {reportStyle === 'preschool' && (
+                            <div className="space-y-2">
+                              <Label>Class Size</Label>
+                              <Input
+                                placeholder="e.g. 10"
+                                value={formData.classSize}
+                                onChange={e => setFormData(f => ({ ...f, classSize: e.target.value }))}
+                              />
+                            </div>
+                          )}
+                          {(reportStyle === 'preschool' || reportStyle === 'primary' || reportStyle === 'standard') && (
+                            <>
+                              <div className="space-y-2">
+                                <Label>Height</Label>
+                                <Input
+                                  placeholder="e.g. 76.0 cm"
+                                  value={formData.height}
+                                  onChange={e => setFormData(f => ({ ...f, height: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Weight</Label>
+                                <Input
+                                  placeholder="e.g. 25.0 kg"
+                                  value={formData.weight}
+                                  onChange={e => setFormData(f => ({ ...f, weight: e.target.value }))}
+                                />
+                              </div>
+                            </>
+                          )}
+                          {(reportStyle === 'primary' || reportStyle === 'standard') && (
+                            <div className="space-y-2">
+                              <Label>Favourite Colour</Label>
+                              <Input
+                                placeholder="e.g. Lilac"
+                                value={formData.favColor}
+                                onChange={e => setFormData(f => ({ ...f, favColor: e.target.value }))}
+                              />
+                            </div>
+                          )}
+                          {reportStyle === 'standard' && !isMidterm && (
+                            <div className="space-y-2">
+                              <Label>Grading Scale</Label>
+                              <Select
+                                value={formData.gradingScaleVariant}
+                                onValueChange={v => setFormData(f => ({ ...f, gradingScaleVariant: v as GradingScaleVariant }))}
+                              >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="waec">Standard (A–F)</SelectItem>
+                                  <SelectItem value="genius">Genius Scale (A1–F9)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+
                         <div className="flex justify-end pt-2">
-                          <Button onClick={() => setActiveTab('scores')}>Next: Enter Scores →</Button>
+                          <Button onClick={() => setActiveTab('scores')}>
+                            Next: {reportStyle === 'preschool' && !isMidterm ? 'Skills Checklist' : 'Enter Scores'} →
+                          </Button>
                         </div>
                       </>
                     )}
@@ -545,114 +803,170 @@ export default function TeacherResultsPage() {
 
                   {/* ── Tab 2: Scores ── */}
                   <TabsContent value="scores" className="space-y-4 pt-4">
-                    {/* Add subject */}
-                    <div className="flex gap-2 items-end bg-muted/30 p-3 rounded-lg border">
-                      <div className="space-y-1 flex-1">
-                        <Label className="text-xs">Add Subject</Label>
-                        <Input
-                          placeholder="e.g. Basic Science"
-                          value={newSubjectName}
-                          onChange={e => setNewSubjectName(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && addSubject()}
-                        />
-                      </div>
-                      <Button type="button" variant="secondary" onClick={addSubject}>
-                        <Plus className="h-4 w-4 mr-1" /> Add
-                      </Button>
-                    </div>
+                    {reportStyle === 'preschool' && !isMidterm ? (
+                      /* ── Pre-School: E/S/N skills checklist, no numeric scores (Image 1) ── */
+                      <>
+                        <p className="text-xs text-muted-foreground -mt-1">
+                          Tick E (Excellent), S (Satisfactory) or N (Needs Improvement) for each skill.
+                        </p>
+                        <ChecklistEditor domains={checklistDomains} onChange={setChecklistDomains} />
+                        <div className="flex justify-between pt-2">
+                          <Button variant="outline" onClick={() => setActiveTab('student')}>← Back</Button>
+                          <Button onClick={() => setActiveTab('report')}>Next: Report Details →</Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Add subject */}
+                        <div className="flex gap-2 items-end bg-muted/30 p-3 rounded-lg border">
+                          <div className="space-y-1 flex-1">
+                            <Label className="text-xs">Add Subject</Label>
+                            <Input
+                              placeholder="e.g. Basic Science"
+                              value={newSubjectName}
+                              onChange={e => setNewSubjectName(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && addSubject()}
+                            />
+                          </div>
+                          <Button type="button" variant="secondary" onClick={addSubject}>
+                            <Plus className="h-4 w-4 mr-1" /> Add
+                          </Button>
+                        </div>
 
-                    <p className="text-xs text-muted-foreground -mt-1">
-                      {formData.resultType === 'Examination'
-                        ? 'Enter each subject\u2019s CAT 1 Total (max 20) + CAT 2 Total (max 20) — together max 40 — and Exam score (max 60). Total = 100.'
-                        : `Enter ${formData.resultType === 'CAT1' ? 'CAT 1' : 'CAT 2'} scores — Notes (max 5) + Assignment (max 5) + Test (max 10). Total = 20.`}
-                    </p>
+                        <p className="text-xs text-muted-foreground -mt-1">
+                          {isMidterm
+                            ? 'Enter 1st C.A. (max 10) + 2nd C.A. (max 10) for each subject. Total = 20, graded as a percentage.'
+                            : formData.resultType === 'Examination'
+                              ? (reportStyle === 'nursery' || reportStyle === 'primary'
+                                  ? 'Enter each subject\u2019s C.A. (max 40) and Exam score (max 60). Total = 100.'
+                                  : 'Enter each subject\u2019s CAT 1 Total (max 20) + CAT 2 Total (max 20) — together max 40 — and Exam score (max 60). Total = 100.')
+                              : `Enter ${formData.resultType === 'CAT1' ? 'CAT 1' : 'CAT 2'} scores — Notes (max 5) + Assignment (max 5) + Test (max 10). Total = 20.`}
+                        </p>
 
-                    {/* Score table */}
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="min-w-[140px]">Subject</TableHead>
-                            {formData.resultType === 'Examination' ? (
-                              <>
-                                <TableHead className="w-[90px] text-center">CAT 1 Total<br /><span className="text-xs text-muted-foreground">(max 20)</span></TableHead>
-                                <TableHead className="w-[90px] text-center">CAT 2 Total<br /><span className="text-xs text-muted-foreground">(max 20)</span></TableHead>
-                                <TableHead className="w-[80px] text-center">Exam<br /><span className="text-xs text-muted-foreground">(max 60)</span></TableHead>
-                              </>
-                            ) : (
-                              <>
-                                <TableHead className="w-[80px] text-center">Notes<br /><span className="text-xs text-muted-foreground">(max 5)</span></TableHead>
-                                <TableHead className="w-[90px] text-center">Assignment<br /><span className="text-xs text-muted-foreground">(max 5)</span></TableHead>
-                                <TableHead className="w-[80px] text-center">Test<br /><span className="text-xs text-muted-foreground">(max 10)</span></TableHead>
-                              </>
-                            )}
-                            <TableHead className="w-[72px] text-center font-bold bg-muted/50">Total</TableHead>
-                            <TableHead className="w-[60px] text-center">Grade</TableHead>
-                            <TableHead className="min-w-[100px]">Remark</TableHead>
-                            <TableHead className="w-[44px]" />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {subjects.map((s, i) => (
-                            <TableRow key={`${s.name}-${i}`}>
-                              <TableCell className="font-medium text-sm">{s.name}</TableCell>
-                              {formData.resultType === 'Examination' ? (
-                                <>
+                        {/* Score table */}
+                        <div className="rounded-md border overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="min-w-[140px]">Subject</TableHead>
+                                {isMidterm ? (
+                                  <>
+                                    <TableHead className="w-[90px] text-center">1st C.A.<br /><span className="text-xs text-muted-foreground">(max 10)</span></TableHead>
+                                    <TableHead className="w-[90px] text-center">2nd C.A.<br /><span className="text-xs text-muted-foreground">(max 10)</span></TableHead>
+                                  </>
+                                ) : formData.resultType === 'Examination' ? (
+                                  reportStyle === 'nursery' || reportStyle === 'primary' ? (
+                                    <>
+                                      <TableHead className="w-[90px] text-center">C.A.<br /><span className="text-xs text-muted-foreground">(max 40)</span></TableHead>
+                                      <TableHead className="w-[80px] text-center">Exam<br /><span className="text-xs text-muted-foreground">(max 60)</span></TableHead>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <TableHead className="w-[90px] text-center">CAT 1 Total<br /><span className="text-xs text-muted-foreground">(max 20)</span></TableHead>
+                                      <TableHead className="w-[90px] text-center">CAT 2 Total<br /><span className="text-xs text-muted-foreground">(max 20)</span></TableHead>
+                                      <TableHead className="w-[80px] text-center">Exam<br /><span className="text-xs text-muted-foreground">(max 60)</span></TableHead>
+                                    </>
+                                  )
+                                ) : (
+                                  <>
+                                    <TableHead className="w-[80px] text-center">Notes<br /><span className="text-xs text-muted-foreground">(max 5)</span></TableHead>
+                                    <TableHead className="w-[90px] text-center">Assignment<br /><span className="text-xs text-muted-foreground">(max 5)</span></TableHead>
+                                    <TableHead className="w-[80px] text-center">Test<br /><span className="text-xs text-muted-foreground">(max 10)</span></TableHead>
+                                  </>
+                                )}
+                                <TableHead className="w-[72px] text-center font-bold bg-muted/50">Total</TableHead>
+                                <TableHead className="w-[60px] text-center">Grade</TableHead>
+                                <TableHead className="min-w-[100px]">Remark</TableHead>
+                                <TableHead className="w-[44px]" />
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {subjects.map((s, i) => (
+                                <TableRow key={`${s.name}-${i}`}>
+                                  <TableCell className="font-medium text-sm">{s.name}</TableCell>
+                                  {isMidterm ? (
+                                    <>
+                                      <TableCell>
+                                        <Input type="number" min="0" max="10" className="h-8 text-center"
+                                          value={s.midtermCA1 || ''} onChange={e => handleScoreChange(i, 'midtermCA1', e.target.value)} />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Input type="number" min="0" max="10" className="h-8 text-center"
+                                          value={s.midtermCA2 || ''} onChange={e => handleScoreChange(i, 'midtermCA2', e.target.value)} />
+                                      </TableCell>
+                                    </>
+                                  ) : formData.resultType === 'Examination' ? (
+                                    reportStyle === 'nursery' || reportStyle === 'primary' ? (
+                                      <>
+                                        <TableCell>
+                                          <Input type="number" min="0" max="40" className="h-8 text-center"
+                                            value={s.cat1Total || ''} onChange={e => handleScoreChange(i, 'cat1Total', e.target.value)} />
+                                        </TableCell>
+                                        <TableCell>
+                                          <Input type="number" min="0" max="60" className="h-8 text-center"
+                                            value={s.examScore || ''} onChange={e => handleScoreChange(i, 'examScore', e.target.value)} />
+                                        </TableCell>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <TableCell>
+                                          <Input type="number" min="0" max="20" className="h-8 text-center"
+                                            value={s.cat1Total || ''} onChange={e => handleScoreChange(i, 'cat1Total', e.target.value)} />
+                                        </TableCell>
+                                        <TableCell>
+                                          <Input type="number" min="0" max="20" className="h-8 text-center"
+                                            value={s.cat2Total || ''} onChange={e => handleScoreChange(i, 'cat2Total', e.target.value)} />
+                                        </TableCell>
+                                        <TableCell>
+                                          <Input type="number" min="0" max="60" className="h-8 text-center"
+                                            value={s.examScore || ''} onChange={e => handleScoreChange(i, 'examScore', e.target.value)} />
+                                        </TableCell>
+                                      </>
+                                    )
+                                  ) : (
+                                    <>
+                                      <TableCell>
+                                        <Input type="number" min="0" max="5" className="h-8 text-center"
+                                          value={s.notes || ''} onChange={e => handleScoreChange(i, 'notes', e.target.value)} />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Input type="number" min="0" max="5" className="h-8 text-center"
+                                          value={s.assignment || ''} onChange={e => handleScoreChange(i, 'assignment', e.target.value)} />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Input type="number" min="0" max="10" className="h-8 text-center"
+                                          value={s.test || ''} onChange={e => handleScoreChange(i, 'test', e.target.value)} />
+                                      </TableCell>
+                                    </>
+                                  )}
+                                  <TableCell className="text-center font-bold bg-muted/30">{s.score}</TableCell>
+                                  <TableCell className="text-center font-bold text-green-800">{s.grade || '—'}</TableCell>
+                                  <TableCell className="text-sm text-muted-foreground">{s.remark || '—'}</TableCell>
                                   <TableCell>
-                                    <Input type="number" min="0" max="20" className="h-8 text-center"
-                                      value={s.cat1Total || ''} onChange={e => handleScoreChange(i, 'cat1Total', e.target.value)} />
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                                      onClick={() => removeSubject(i)}>
+                                      <X className="h-3.5 w-3.5" />
+                                    </Button>
                                   </TableCell>
-                                  <TableCell>
-                                    <Input type="number" min="0" max="20" className="h-8 text-center"
-                                      value={s.cat2Total || ''} onChange={e => handleScoreChange(i, 'cat2Total', e.target.value)} />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input type="number" min="0" max="60" className="h-8 text-center"
-                                      value={s.examScore || ''} onChange={e => handleScoreChange(i, 'examScore', e.target.value)} />
-                                  </TableCell>
-                                </>
-                              ) : (
-                                <>
-                                  <TableCell>
-                                    <Input type="number" min="0" max="5" className="h-8 text-center"
-                                      value={s.notes || ''} onChange={e => handleScoreChange(i, 'notes', e.target.value)} />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input type="number" min="0" max="5" className="h-8 text-center"
-                                      value={s.assignment || ''} onChange={e => handleScoreChange(i, 'assignment', e.target.value)} />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input type="number" min="0" max="10" className="h-8 text-center"
-                                      value={s.test || ''} onChange={e => handleScoreChange(i, 'test', e.target.value)} />
-                                  </TableCell>
-                                </>
-                              )}
-                              <TableCell className="text-center font-bold bg-muted/30">{s.score}</TableCell>
-                              <TableCell className="text-center font-bold text-green-800">{s.grade || '—'}</TableCell>
-                              <TableCell className="text-sm text-muted-foreground">{s.remark || '—'}</TableCell>
-                              <TableCell>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                                  onClick={() => removeSubject(i)}>
-                                  <X className="h-3.5 w-3.5" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
 
-                    {/* Running totals */}
-                    <div className="flex justify-between items-center bg-green-50 border border-green-200 p-3 rounded-lg text-sm font-medium">
-                      <span>Total Cumulative: <strong>{totalScore}</strong></span>
-                      <span>Average: <strong>{avgScore}%</strong></span>
-                      <span>Subjects: <strong>{subjects.length}</strong></span>
-                    </div>
+                        {/* Running totals */}
+                        <div className="flex justify-between items-center bg-green-50 border border-green-200 p-3 rounded-lg text-sm font-medium">
+                          <span>Total Cumulative: <strong>{totalScore}</strong></span>
+                          <span>Average: <strong>{avgScore}{isMidterm ? '' : '%'}</strong></span>
+                          <span>Subjects: <strong>{subjects.length}</strong></span>
+                        </div>
 
-                    <div className="flex justify-between pt-2">
-                      <Button variant="outline" onClick={() => setActiveTab('student')}>← Back</Button>
-                      <Button onClick={() => setActiveTab('report')}>Next: Report Details →</Button>
-                    </div>
+                        <div className="flex justify-between pt-2">
+                          <Button variant="outline" onClick={() => setActiveTab('student')}>← Back</Button>
+                          <Button onClick={() => setActiveTab('report')}>Next: Report Details →</Button>
+                        </div>
+                      </>
+                    )}
                   </TabsContent>
 
                   {/* ── Tab 3: Report (Attendance + Ratings) ── */}
@@ -688,21 +1002,34 @@ export default function TeacherResultsPage() {
                       )}
                     </div>
 
-                    {/* Affective domain */}
-                    <RatingTable
-                      title="Affective Domain"
-                      labels={AFFECTIVE_TRAITS}
-                      values={affective}
-                      onChange={(label, v) => setAffective(a => ({ ...a, [label]: v }))}
-                    />
+                    {reportStyle === 'nursery' && !isMidterm ? (
+                      /* ── Nursery: 4-3-2-1 rated domains instead of Affective/Psychomotor (Image 2) ── */
+                      <div>
+                        <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                          <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-800" />
+                          Domain Ratings
+                        </h3>
+                        <RatedDomainEditor domains={ratedDomains} onChange={setRatedDomains} />
+                      </div>
+                    ) : reportStyle === 'preschool' && !isMidterm ? null : (
+                      <>
+                        {/* Affective domain */}
+                        <RatingTable
+                          title="Affective Domain"
+                          labels={AFFECTIVE_TRAITS}
+                          values={affective}
+                          onChange={(label, v) => setAffective(a => ({ ...a, [label]: v }))}
+                        />
 
-                    {/* Psychomotor */}
-                    <RatingTable
-                      title="Psychomotor Skills"
-                      labels={PSYCHOMOTOR_SKILLS}
-                      values={psychomotor}
-                      onChange={(label, v) => setPsychomotor(a => ({ ...a, [label]: v }))}
-                    />
+                        {/* Psychomotor */}
+                        <RatingTable
+                          title="Psychomotor Skills"
+                          labels={PSYCHOMOTOR_SKILLS}
+                          values={psychomotor}
+                          onChange={(label, v) => setPsychomotor(a => ({ ...a, [label]: v }))}
+                        />
+                      </>
+                    )}
 
                     <div className="flex justify-between pt-2">
                       <Button variant="outline" onClick={() => setActiveTab('scores')}>← Back</Button>

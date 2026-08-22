@@ -1,159 +1,88 @@
-# Result Generation System (RGS)
+# Result Sheet Creation & Generation — redesign
 
-A complete web-based examination and midterm result generation system for Nigerian schools.
+Matches result-sheet creation/generation to all 9 sample layouts:
 
-![Result Generation System](public/images/Result_Generation_System.jpg)
+| Image | Class type            | Report style   |
+|-------|------------------------|----------------|
+| 1     | Pre-School              | `preschool`    |
+| 2     | Nursery                 | `nursery`      |
+| 3     | Primary                 | `primary`      |
+| 4-6   | College (JSS/SS) terms  | `standard`     |
+| 7-8   | Senior (JSS/SS) terms   | `standard`     |
+| 9     | Midterm (any class)     | `midterm`      |
 
-## 🎓 Features
+The PDF *rendering* side (`pdf-generator.tsx`) already matched these
+templates closely. The real gap was the **teacher's result-creation form**,
+which was one generic CAT1/CAT2/Examination score grid regardless of class
+— it had no way to actually produce checklist data, rated-domain data,
+midterm data, or the extra bio fields the templates need. This patch closes
+that gap end-to-end, plus fixes a few bugs found along the way.
 
-### For Administrators
-- **User Management**: Create and manage teacher and parent accounts
-- **Authorization System**: Generate secure 6-digit codes for registration
-- **Class Management**: Create and assign classes to teachers
-- **System Oversight**: Monitor all results and system activity
-- **Session Management**: Manage academic sessions and terms
+## Files changed
 
-### For Teachers
-- **Result Creation**: Generate midterm and examination results
-- **Auto-Calculations**: Automatic grade, position, and average calculations
-- **Template System**: Pre-configured templates for Nursery, Kindergarten, and Primary
-- **PDF Generation**: Professional result sheets with school logo
-- **Publishing Control**: Publish results for parent access
+### `src/app/teacher/results/page.tsx` (main change)
+- **Added "Midterm" as a selectable Result Type** — previously impossible
+  to create, so the Image 9 layout could never actually be generated.
+  New 1st/2nd C.A. inputs (max 10 each), graded on a 0–100% conversion
+  against the Midterm grading scale.
+- **Preschool** (`getReportStyle` resolves to `preschool`): the Scores tab
+  is replaced by a new `ChecklistEditor` — tap E / S / N per skill, grouped
+  by domain, matching Image 1. Numeric scoring and Affective/Psychomotor
+  tables are skipped entirely for this class type.
+- **Nursery**: Scores tab simplified to a single C.A. (max 40) + Exam
+  (max 60) field per subject (previously forced the CAT1/CAT2 breakdown
+  meant for JSS/SS). The Report tab's Affective/Psychomotor tables are
+  replaced with a new `RatedDomainEditor` (4-3-2-1 per item), matching
+  Image 2.
+- **Primary**: same simplified C.A./Exam fields as Nursery, but keeps the
+  Affective/Psychomotor tables (matches Image 3).
+- **Standard (JSS/SS)**: unchanged CAT1/CAT2/Examination breakdown, plus a
+  new **Grading Scale** selector (Standard A–F vs. Genius A1–F9) so a
+  teacher can pick which of Images 4-8's scales applies.
+- **New bio fields**, shown contextually per class type: Gender, Date of
+  Birth, Height, Weight, Favourite Colour, Class Size (preschool only).
+- **Wired up `hydrateResultForPdf`** on download, so the PDF's class
+  min/max/avg, subject position, prior-term columns, and session average
+  actually populate (see bug fix below).
 
-### For Parents
-- **Ward Management**: Register and manage children
-- **Result Access**: View published results by term
-- **PDF Download**: Download and print result sheets
-- **Secure Access**: Role-based authentication
+### `src/lib/services/result-stats.ts`
+- These class-stats functions (`fetchClassSubjectStats`,
+  `fetchPriorTermTotals`, `computeSessionAverage`) were fully written but
+  **never called anywhere** in the app — every PDF showed "—" for class
+  min/max/avg, subject position, and prior-term columns.
+- Added `hydrateResultForPdf(result)`: fetches and merges all of the above
+  into a result just before PDF generation. Best-effort — any failure just
+  returns the original result unchanged rather than blocking the download.
 
-## 🛠️ Technology Stack
+### `src/app/admin/results/page.tsx`
+- Wired `hydrateResultForPdf` into the admin "Download PDF" button too.
 
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
-- **UI Components**: ShadCN/UI, Radix UI
-- **Backend**: Appwrite (Authentication, Database, Storage)
-- **State Management**: Zustand
-- **PDF Generation**: @react-pdf/renderer
+### `src/lib/services/pdf-generator.tsx`
+- Fixed the Midterm report's "% Total" column, which was echoing the raw
+  (out of 20) score instead of converting it to a percentage.
 
-## 📋 Prerequisites
+### `src/lib/services/results.ts`
+- `dob`, `classSize`, and `sessionAverage` were typed on `Result` but
+  silently dropped on the way to/from the backend's `extra_data` JSON blob
+  — added them to `mapResult` / `buildExtraData` so they round-trip.
 
-- Node.js 18+ installed
-- Appwrite Cloud account (free) or self-hosted instance
-- Modern web browser
+### `src/lib/types/index.ts`
+- Added `dob?: string` to the `Result` interface (previously only accessed
+  via an `as any` cast in the PDF generator).
 
-## 🚀 Quick Start
+## Not changed / out of scope
+- Parent's results page doesn't generate PDFs directly, so nothing to wire
+  there.
+- The overall per-result grade badge (`overall_grade`) is still computed
+  server-side on a fixed A–F scale regardless of the chosen
+  `gradingScaleVariant` — only per-subject grades and the printed grade-key
+  box reflect the WAEC/Genius choice. Changing the server-side overall
+  grade to respect the variant would need a small backend change; flagging
+  it here in case you want it, but left out to keep this patch focused on
+  the creation/generation gap you asked about.
 
-###  1. Installation
+## To apply
 
-```bash
-# Clone or extract the project
-cd result-generation-system
-
-# Install dependencies
-npm install
-```
-
-### 2. Environment Setup
-
-```bash
-# Copy environment template
-cp .env.example .env.local
-
-# Edit .env.local with your Appwrite credentials
-```
-
-### 3. Appwrite Configuration
-
-1. Create an Appwrite project at [cloud.appwrite.io](https://cloud.appwrite.io)
-2. Create a database
-3. Create collections (see SETUP_GUIDE.md for details):
-   - users
-   - auth_codes
-   - students
-   - results
-   - classes
-   - sessions
-4. Create a storage bucket for PDFs
-5. Update .env.local with your IDs
-
-### 4. Run Development Server
-
-```bash
-npm run dev
-```
-
-Visit [http://localhost:3000](http://localhost:3000)
-
-## 📚 Documentation
-
-- **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - Detailed setup instructions
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production deployment guide
-- **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)** - API reference
-
-## 🏗️ Project Structure
-
-```
-result-generation-system/
-├── src/
-│   ├── app/                    # Next.js App Router pages
-│   │   ├── auth/              # Authentication pages
-│   │   ├── admin/             # Admin dashboard
-│   │   ├── teacher/           # Teacher dashboard
-│   │   └── parent/            # Parent dashboard
-│   ├── components/            # React components
-│   │   ├── ui/               # UI components
-│   │   ├── layout/           # Layout components
-│   │   └── shared/           # Shared components
-│   ├── lib/                   # Core libraries
-│   │   ├── services/         # Backend services
-│   │   └── utils/            # Utility functions
-│   ├── store/                 # State management
-│   └── types/                 # TypeScript definitions
-├── public/                    # Static assets
-└── [config files]            # Configuration files
-```
-
-## 🎯 Nigerian Education Support
-
-### Grading Scale
-- **A (75-100)**: Excellent
-- **B (65-74)**: Very Good
-- **C (55-64)**: Good
-- **D (45-54)**: Fair
-- **E (40-44)**: Pass
-- **F (0-39)**: Fail
-
-### Templates
-- **Nursery**: Descriptive grading system
-- **Kindergarten**: Developmental assessment
-- **Primary**: Numeric scoring with 11 subjects
-
-## 🔐 Security Features
-
-- Role-based access control (Admin, Teacher, Parent)
-- 6-digit authorization codes with expiry
-- Secure session management
-- Protected API endpoints
-
-## 📱 Responsive Design
-
-- Mobile-first approach
-- Tablet-optimized layouts
-- Desktop-enhanced features
-
-## 🤝 Support
-
-For issues, questions, or contributions, please refer to the documentation or create an issue.
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
-## 🙏 Acknowledgments
-
-- Built with Next.js and Appwrite
-- UI components from ShadCN/UI
-- Icons from Lucide React
-
----
-
-**Result Generation System** - Empowering Nigerian schools with modern result management.
+Copy the files under `frontend/src/...` over the matching paths in
+`result-generation-system/`. No new dependencies, no backend changes, no
+migrations — everything rides on the existing `extra_data` JSONB column.

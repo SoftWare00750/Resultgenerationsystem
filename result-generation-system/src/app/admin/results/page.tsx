@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { resultsService } from "@/lib/services/results";
+import { hydrateResultForPdf } from "@/lib/services/result-stats";
 import { downloadResultPDF } from "@/lib/services/pdf-generator";
 import { toast } from "sonner";
 import { RefreshCw, FileText, Download } from "lucide-react";
@@ -68,7 +69,8 @@ export default function AdminResultsPage() {
   const handleDownload = async (result: Result) => {
     setDownloading(result.$id);
     try {
-      await downloadResultPDF(result);
+      const hydrated = await hydrateResultForPdf(result);
+      await downloadResultPDF(hydrated);
       toast.success("PDF downloaded");
     } catch (e: any) {
       console.error("PDF error:", e);
