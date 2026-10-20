@@ -146,7 +146,11 @@ export default function AdminLoginPage() {
             </Button>
           </form>
 
-          
+          {/* Forgot password */}
+          <Button asChild type="button" variant="outline" className="w-full h-11">
+            <Link href="/auth/forgot-password?portal=admin">Forgot password?</Link>
+          </Button>
+
           {/* Register link */}
           <p className="text-center text-sm text-muted-foreground">
             Need to create an account?{" "}

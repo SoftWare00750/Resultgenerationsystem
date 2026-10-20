@@ -171,6 +171,10 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          <Button asChild type="button" variant="outline" className="w-full h-11">
+            <Link href="/auth/forgot-password">Forgot password?</Link>
+          </Button>
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
             <div className="relative flex justify-center text-xs uppercase">

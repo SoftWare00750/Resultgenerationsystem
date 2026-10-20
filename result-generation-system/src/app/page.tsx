@@ -158,6 +158,7 @@ const LANDING_STYLE = `
   }
   .hero-btns { display: flex; gap: 14px; justify-content: center; margin-bottom: 56px; }
   .hero-btn-primary {
+    display: inline-block; text-align: center;
     background: var(--blue); color: #fff;
     padding: 14px 32px; border-radius: 999px; font-size: 1rem; font-weight: 700;
     cursor: pointer; border: none; transition: background .2s;
@@ -1631,7 +1632,7 @@ const LANDING_BODY = `
   </div>
   <div class="nav-cta" id="navCta">
      <a href="/auth/login" class="btn-outline">Login</a>
-    <a href="/auth/register?role=admin&plan=starter" class="btn-solid">Get Started for Free</a>
+    <a href="/auth/login" class="btn-solid">Get Started for Free</a>
   </div>
   <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false">
     <span></span><span></span><span></span>
@@ -1644,7 +1645,7 @@ const LANDING_BODY = `
   <h1 class="fade-up">Smart Result<br>Generation System</h1>
   <p class="fade-up delay-1">RGS is designed to help schools generate accurate student results in minutes, eliminate errors, and keep every stakeholder informed — in real time.</p>
   <div class="hero-btns fade-up delay-2">
-    <button class="hero-btn-primary">Get Started for Free</button>
+    <a href="/auth/login" class="hero-btn-primary">Get Started for Free</a>
     <button class="hero-btn-secondary">See How It Works</button>
   </div>
   <div class="hero-badge">⚡ 10× Faster Results</div>
@@ -2058,7 +2059,7 @@ const LANDING_BODY = `
     <div class="join-text">
       <h2>Join the Schools Getting Results Right</h2>
       <p>With tools designed to make every part of result generation faster and more accurate, and a support team always ready to help — we invite your school to get started for free today.</p>
-      <button class="btn-solid" style="font-size:1rem;padding:14px 32px;">Get Started for Free</button>
+      <a href="/auth/login" class="btn-solid" style="display:inline-block;font-size:1rem;padding:14px 32px;">Get Started for Free</a>
     </div>
     <div class="join-visual">🎉</div>
   </div>

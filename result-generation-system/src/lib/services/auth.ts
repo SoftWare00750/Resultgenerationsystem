@@ -109,6 +109,16 @@ export const authService = {
     return api.post('/admin-signup/verify-code', { email, code }, { skipAuth: true });
   },
 
+  // ── Forgot password: emailed 6-digit code, then set a new password ─────────
+
+  async requestPasswordResetCode(email: string): Promise<{ message: string; devMode?: boolean; cooldownSeconds: number }> {
+    return api.post('/password-reset/request-code', { email }, { skipAuth: true });
+  },
+
+  async resetPassword(email: string, code: string, newPassword: string): Promise<{ message: string }> {
+    return api.post('/password-reset/reset', { email, code, newPassword }, { skipAuth: true });
+  },
+
   async getCurrentUser(): Promise<User | null> {
     if (typeof window === 'undefined') return null;
     const token = getToken();
