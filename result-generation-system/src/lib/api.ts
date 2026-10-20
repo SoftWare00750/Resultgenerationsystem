@@ -63,13 +63,22 @@ async function request<T>(
   const url = `${API_BASE_URL}${path}`;
 
   let res: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
   try {
     res = await fetch(url, {
       method,
       headers,
+      signal: controller.signal,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (err: any) {
+    if (err?.name === "AbortError") {
+      throw new ApiError(
+        "The server took too long to respond. Please try again in a moment.",
+        0
+      );
+    }
     // Network-level failure — could be CORS, DNS, or the backend being unreachable.
     const msg = err?.message ?? String(err);
     throw new ApiError(
@@ -79,6 +88,8 @@ async function request<T>(
         `Original error: ${msg}`,
       0
     );
+  } finally {
+    clearTimeout(timer);
   }
 
   // Handle empty responses (e.g. 204 No Content from DELETE)
