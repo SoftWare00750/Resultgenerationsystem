@@ -165,6 +165,7 @@ const LANDING_STYLE = `
   }
   .hero-btn-primary:hover { background: var(--blue-dark); }
   .hero-btn-secondary {
+    display: inline-block; text-align: center;
     background: #fff; color: var(--blue);
     padding: 14px 32px; border-radius: 999px; font-size: 1rem; font-weight: 700;
     cursor: pointer; border: 2px solid var(--blue); transition: background .2s;
@@ -1620,8 +1621,8 @@ const LANDING_BODY = `
     <div class="nav-item">
       <a href="#resources" class="has-arrow">Resources</a>
       <div class="dropdown-menu">
-        <a href="#resources">Quickstart Tutorial</a>
-        <a href="#resources">Help Center</a>
+        <a href="/guide">Quickstart Tutorial</a>
+        <a href="/guide">Help Center</a>
         <a href="#resources">Webinars</a>
         <a href="#resources">Case Studies</a>
         <a href="#resources">Blog</a>
@@ -1646,7 +1647,7 @@ const LANDING_BODY = `
   <p class="fade-up delay-1">RGS is designed to help schools generate accurate student results in minutes, eliminate errors, and keep every stakeholder informed — in real time.</p>
   <div class="hero-btns fade-up delay-2">
     <a href="/auth/login" class="hero-btn-primary">Get Started for Free</a>
-    <button class="hero-btn-secondary">See How It Works</button>
+    <a href="/guide" class="hero-btn-secondary">See How It Works</a>
   </div>
   <div class="hero-badge">⚡ 10× Faster Results</div>
   <div class="hero-mockup fade-up delay-3">
@@ -2100,7 +2101,7 @@ const LANDING_BODY = `
       <h4>Resources</h4>
       <ul>
         <li><a href="#">Blog</a></li>
-        <li><a href="#">Help Centre</a></li>
+        <li><a href="/guide">Help Centre</a></li>
         <li><a href="#">Video Tutorials</a></li>
         <li><a href="#">System Status</a></li>
       </ul>
