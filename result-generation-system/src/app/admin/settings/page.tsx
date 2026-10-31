@@ -58,7 +58,24 @@ export default function SchoolSettingsPage() {
     if (!file) return;
     if (file.size > 3 * 1024 * 1024) { toast.error("Logo must be under 3MB"); return; }
     const reader = new FileReader();
-    reader.onloadend = () => set("logo", reader.result as string);
+    reader.onloadend = () => {
+      const original = reader.result as string;
+      // Downscale to max 320px (PNG keeps transparency) so the logo is small
+      // enough to store with the school record and appear on every device.
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, 320 / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const g = canvas.getContext("2d");
+        if (!g) { set("logo", original); return; }
+        g.drawImage(img, 0, 0, canvas.width, canvas.height);
+        set("logo", canvas.toDataURL("image/png"));
+      };
+      img.onerror = () => set("logo", original);
+      img.src = original;
+    };
     reader.readAsDataURL(file);
   };
 

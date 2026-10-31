@@ -30,7 +30,11 @@ export function getSchoolInfoLocal(): SchoolInfo | null {
 
 export function setSchoolInfoLocal(info: SchoolInfo): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(info));
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(info));
+  } catch {
+    // Storage full / unavailable — the cache is optional, never fail the caller
+  }
 }
 
 // ─── Backend-aware helpers ─────────────────────────────────────────────────────
@@ -44,11 +48,15 @@ interface BackendSchool {
 }
 
 function mapSchool(s: BackendSchool): SchoolInfo {
+  const isData = typeof s.logo_url === 'string' && s.logo_url.startsWith('data:');
   return {
     name: s.name,
-    address: s.address,
-    motto: s.motto,
-    logoUrl: s.logo_url,
+    address: s.address ?? undefined,
+    motto: s.motto ?? undefined,
+    // A small logo is stored on the backend as a data URL so every device
+    // (teachers, parents) sees the same logo on result sheets.
+    logo: isData ? s.logo_url : undefined,
+    logoUrl: isData ? undefined : s.logo_url ?? undefined,
   };
 }
 
@@ -58,9 +66,10 @@ export const schoolService = {
       const s = await api.get<BackendSchool | null>('/school');
       if (!s) return null;
       const info = mapSchool(s);
-      // Merge local logo (base64) which we keep client-side
+      // Fall back to this browser's cached logo only if it belongs to the same school
       const local = getSchoolInfoLocal();
-      if (local?.logo) info.logo = local.logo;
+      if (!info.logo && !info.logoUrl && local?.logo && local.name === info.name) info.logo = local.logo;
+      setSchoolInfoLocal(info); // keep the PDF generator's cache fresh
       return info;
     } catch {
       return getSchoolInfoLocal();
@@ -68,19 +77,19 @@ export const schoolService = {
   },
 
   async save(info: SchoolInfo): Promise<SchoolInfo> {
-    // Persist logo only locally (too large for typical API calls)
     setSchoolInfoLocal(info);
-    // Send non-base64 fields to backend
+    // The (downscaled) logo is sent as a data URL in logo_url so it is shared
+    // across devices; an http(s) logoUrl is sent as-is.
     const body = {
       name: info.name,
       address: info.address,
       motto: info.motto,
-      logoUrl: info.logoUrl,
+      logoUrl: info.logo || info.logoUrl || null,
     };
     try {
       const res = await api.put<BackendSchool>('/school', body);
       const saved = mapSchool(res);
-      saved.logo = info.logo;
+      if (!saved.logo) saved.logo = info.logo;
       setSchoolInfoLocal(saved);
       return saved;
     } catch {

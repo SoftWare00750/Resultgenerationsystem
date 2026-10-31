@@ -34,6 +34,7 @@ import {
   MIDTERM_GRADING_SCALE,
 } from "@/lib/types";
 import { getSchoolInfo, getSignatures, getStore, KEYS } from "@/lib/storage";
+import { schoolService } from "./school";
 
 // ─── tiny helpers ─────────────────────────────────────────────────────────────
 
@@ -78,6 +79,43 @@ const C_CELL      = "#fde4e7"; // score cells
 const C_ROW_A     = "#fffef4"; // subject / label cells
 const C_ROW_B     = "#fff3f4";
 const C_STAMP     = "#2b3f9c"; // stamp ink
+
+// ─── School identity (name / logo / address / motto) ──────────────────────────
+// Loaded from the backend for the signed-in user's school (and cached), so every
+// device prints the same header — not just the browser where settings were saved.
+
+let activeSchool: any = null;
+const currentSchool = (): any => activeSchool ?? getSchoolInfo();
+
+async function urlToDataUrl(url: string): Promise<string | null> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const blob = await r.blob();
+    return await new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onloadend = () => resolve(typeof fr.result === "string" ? fr.result : null);
+      fr.onerror = () => resolve(null);
+      fr.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function resolveSchoolInfo(): Promise<void> {
+  const local: any = getSchoolInfo();
+  let info: any = local;
+  try {
+    const remote: any = await schoolService.get();
+    if (remote?.name) info = remote;
+  } catch { /* offline – use cache */ }
+  if (info && !info.logo && info.logoUrl && /^https?:/i.test(info.logoUrl)) {
+    const data = await urlToDataUrl(info.logoUrl);
+    if (data) info = { ...info, logo: data };
+  }
+  activeSchool = info;
+}
 
 // ─── Resolve student photo from local storage ─────────────────────────────────
 
@@ -154,10 +192,14 @@ interface Ctx {
   // Legacy no-op accessors kept so any stray getY()/setY() calls don't crash.
   getY: () => number;
   setY: (y: number) => void;
+  /** Fit factor (<=1): layout is done in a virtual page of 210/K x 297/K mm, scaled to A4. */
+  K: number;
+  /** Closes the scaling transform on the current (last) page. */
+  closePage: () => void;
 }
 
-function makeCtx(doc: any): Ctx {
-  const PW = 210, PH = 297, ML = 14, MR = 14, CW = PW - ML - MR;
+function makeCtx(doc: any, K = 1): Ctx {
+  const PW = 210 / K, PH = 297 / K, ML = 14 / K, MR = 14 / K, CW = PW - ML - MR;
   let _y = 12;
   const setColor = (hex: string) => { const [r, g, b] = hex2rgb(hex); doc.setTextColor(r, g, b); };
   const setFill  = (hex: string) => { const [r, g, b] = hex2rgb(hex); doc.setFillColor(r, g, b); };
@@ -168,33 +210,37 @@ function makeCtx(doc: any): Ctx {
   };
   const text = (txt: string, x: number, y: number, opts: any = {}) => doc.text(txt, x, y, opts);
   const line = (x1: number, y1: number, x2: number, y2: number, color = C_BORDER) => { setDraw(color); doc.line(x1, y1, x2, y2); };
-  const checkBreak = (y: number, needed: number) => { if (y + needed > PH - 14) { doc.addPage(); return 15; } return y; };
+  const checkBreak = (y: number, needed: number) => { if (y + needed > PH - 14 / K) { doc.addPage(); return 15 / K; } return y; };
 
-  // Cream paper + dark frame on every page (including pages added later).
+  // Cream paper + dark frame are drawn at physical A4 size; everything after
+  // is drawn inside a scaling transform (K) so long sheets fit on one page.
+  const PAGE_H_MM = 297, SF = doc.internal.scaleFactor;
   const paintPage = () => {
-    setFill(C_PAGE); doc.rect(0, 0, PW, PH, "F");
-    setDraw(C_FRAME); doc.setLineWidth(0.4); doc.rect(4, 4, PW - 8, PH - 8, "S");
+    setFill(C_PAGE); doc.rect(0, 0, 210, 297, "F");
+    setDraw(C_FRAME); doc.setLineWidth(0.4); doc.rect(4, 4, 202, 289, "S");
     doc.setLineWidth(0.2);
+    doc.internal.write("q", `${K} 0 0 ${K} 0 ${((1 - K) * PAGE_H_MM * SF).toFixed(3)} cm`);
   };
+  const closePage = () => doc.internal.write("Q");
   paintPage();
   const origAddPage = doc.addPage.bind(doc);
-  doc.addPage = (...args: any[]) => { const r = origAddPage(...args); paintPage(); return r; };
+  doc.addPage = (...args: any[]) => { closePage(); const r = origAddPage(...args); paintPage(); return r; };
 
-  return { doc, PW, PH, ML, MR, CW, setColor, setFill, setDraw, rect, text, line, checkBreak, getY: () => _y, setY: (v: number) => { _y = v; } };
+  return { doc, PW, PH, ML, MR, CW, setColor, setFill, setDraw, rect, text, line, checkBreak, getY: () => _y, setY: (v: number) => { _y = v; }, K, closePage };
 }
 
 // ─── Header (student card, school identity, title) ────────────────────────────
 
 function drawHeader(ctx: Ctx, result: Result, titleText: string): number {
   const { doc, ML, CW, PW, rect, text, setColor } = ctx;
-  const schoolInfo = getSchoolInfo();
-  const schoolName    = (schoolInfo?.name || "SCHOOL RESULT MANAGEMENT SYSTEM").toUpperCase();
+  const schoolInfo = currentSchool();
+  const schoolName    = (schoolInfo?.name || "").trim().toUpperCase();
   const schoolAddress = schoolInfo?.address || "";
   const schoolMotto   = schoolInfo?.motto   || "";
   const schoolLogo    = schoolInfo?.logo    || null;
   const studentPhoto  = getStudentPhoto(result.admissionNumber);
 
-  let y = 12;
+  let y = 12 / ctx.K;
   const CARD_W = 68, CARD_H = 27;
 
   // Student card (left)
@@ -394,8 +440,8 @@ function shortAddress(addr: string, max = 30): string {
 
 function drawSchoolStamp(ctx: Ctx, cx: number, cy: number, R: number): void {
   const { doc, setColor, setDraw, setFill } = ctx;
-  const info = getSchoolInfo();
-  const name = (info?.name || "SCHOOL RESULT MANAGEMENT SYSTEM").toUpperCase();
+  const info = currentSchool();
+  const name = (info?.name || "OFFICIAL SCHOOL STAMP").trim().toUpperCase();
   const bottom = info?.address ? shortAddress(info.address) : info?.motto ? info.motto.toUpperCase() : "REPORT SHEET";
   const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
 
@@ -496,11 +542,11 @@ function drawFooter(ctx: Ctx, result: Result, y: number, nextLabelOverride?: str
   text(`${nextLabel}: ____________________`, ML, y);
   text(`Date: ${new Date().toLocaleDateString()}`, ML + CW, y, { align: "right" });
 
-  const schoolInfo = getSchoolInfo();
-  const schoolName = schoolInfo?.name || "SCHOOL RESULT MANAGEMENT SYSTEM";
-  line(ML, PH - 12, ML + CW, PH - 12);
+  const schoolInfo = currentSchool();
+  const schoolName = (schoolInfo?.name || "").trim();
+  line(ML, PH - 12 / ctx.K, ML + CW, PH - 12 / ctx.K);
   doc.setFontSize(6.5); setColor(C_MUTED);
-  text(`${schoolName} \u00A9 ${new Date().getFullYear()} \u2022 Generated ${new Date().toLocaleDateString()}`, PW / 2, PH - 8, { align: "center" });
+  text(`${schoolName ? schoolName + " \u00A9 " : ""}${new Date().getFullYear()} \u2022 Generated ${new Date().toLocaleDateString()}`, PW / 2, PH - 8 / ctx.K, { align: "center" });
 }
 
 // ─── Grade-analysis frequency table (auto-tallied from subject grades) ────────
@@ -827,13 +873,7 @@ function renderNursery(ctx: Ctx, result: Result): void {
   let y = drawHeader(ctx, result, `${s(result.term).toUpperCase()} TERM PUPIL'S PERFORMANCE REPORT`);
 
   y = drawInfoBar(ctx, y, [[
-    ["Name:", s(result.studentName)], ["Class:", s(result.class)], ["Gender:", s(result.gender)],
-  ], [
-    ["Session:", s(result.session)], ["Admsn No:", s(result.admissionNumber)], ["Age:", s(result.age)],
-  ], [
-    ["No of Times School Opened:", String(result.attendance?.opened ?? 0)],
-    ["No of Times Present:", String(result.attendance?.present ?? 0)],
-    ["No of Times Absent:", String(result.attendance?.absent ?? 0)],
+    ["Session:", s(result.session)], ["Age:", s(result.age)],
   ]]);
 
   const leftW = CW * 0.56, rightW = CW * 0.42, gap = CW * 0.02;
@@ -903,9 +943,7 @@ function renderPrimary(ctx: Ctx, result: Result): void {
 
   const infoW = CW * 0.72, attW = CW * 0.26, attX = ML + infoW + CW * 0.02;
   const infoBottom = drawInfoBar({ ...ctx, CW: infoW } as Ctx, y, [
-    [["Name:", s(result.studentName)], ["Gender:", s(result.gender)]],
-    [["Class:", s(result.class)], ["Session:", s(result.session)]],
-    [["Admsn No:", s(result.admissionNumber)], ["Age:", s(result.age)]],
+    [["Session:", s(result.session)], ["Age:", s(result.age)]],
     [["Ht/Wt:", `${s(result.height, "-")} / ${s(result.weight, "-")}`], ["Fav. Colour:", s(result.favColor)]],
   ]);
   const attBottom = drawAttendanceBox(ctx, attX, y, attW, result);
@@ -997,13 +1035,10 @@ function renderStandard(ctx: Ctx, result: Result): void {
 
   const infoW = CW * 0.70, attW = CW * 0.28, attX = ML + infoW + CW * 0.02;
   const infoRows: [string, string][][] = [
-    [["Name:", s(result.studentName)], ["Gender:", s(result.gender)]],
-    [["Class:", s(result.class)], ["Session:", s(result.session)]],
-    [["Admsn No:", s(result.admissionNumber)], ["D.O.B:", s((result as any).dob)]],
-    [["Age:", s(result.age)], ["Ht/Wt:", `${s(result.height, "-")} / ${s(result.weight, "-")}`]],
-    [["Club/Society:", s(result.club)], ["Fav. Colour:", s(result.favColor)]],
+    [["Session:", s(result.session)], ["Age:", s(result.age)]],
+    [["Ht/Wt:", `${s(result.height, "-")} / ${s(result.weight, "-")}`], ["Fav. Colour:", s(result.favColor)]],
+    [["Club/Society:", s(result.club)], ["House:", s(result.house)]],
   ];
-  if (result.house) infoRows[1].push(["House:", s(result.house)] as any);
   const infoBottom = drawInfoBar({ ...ctx, CW: infoW } as Ctx, y, infoRows);
   const attBottom = drawAttendanceBox(ctx, attX, y, attW, result);
   y = Math.max(infoBottom, attBottom);
@@ -1166,19 +1201,30 @@ const RENDERERS: Record<ReportStyle, (ctx: Ctx, result: Result) => void> = {
 export async function generateResultPDF(result: Result): Promise<Blob> {
   const jsPDFModule = await import("jspdf");
   const JsPDF = (jsPDFModule as any).default ?? (jsPDFModule as any).jsPDF ?? jsPDFModule;
-  const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const ctx = makeCtx(doc);
+
+  await resolveSchoolInfo();
 
   const style = getReportStyle(result.class, result.resultType);
   const renderer = RENDERERS[style] || renderStandard;
-  renderer(ctx, result);
 
-  // "page i of N" label, top-left of every page
+  // Fit the whole sheet on ONE A4 page: lay it out at full size first and, if it
+  // spills onto a second page, shrink uniformly until it fits.
+  let doc: any = null;
+  let ctx: Ctx | null = null;
+  for (let K = 1; K >= 0.5; K = Math.round((K - 0.03) * 100) / 100) {
+    doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    ctx = makeCtx(doc, K);
+    renderer(ctx, result);
+    if (doc.getNumberOfPages() === 1) break;
+  }
+  ctx!.closePage();
+
+  // "page i of N" label, top-left of every page (outside the scaling transform)
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); ctx.setColor(C_PRIMARY);
-    doc.text(`page ${i} of ${pages}`, ctx.ML, 9);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); ctx!.setColor(C_PRIMARY);
+    doc.text(`page ${i} of ${pages}`, 14, 9);
   }
 
   return doc.output("blob");
