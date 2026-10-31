@@ -60,15 +60,24 @@ function hex2rgb(hex: string): [number, number, number] {
 }
 
 // ─── colour constants ─────────────────────────────────────────────────────────
-const C_PRIMARY   = "#1f3d2e";
-const C_HEADER_BG = "#f3d9b1";
+// Palette follows the school's printed mid-term sheet: cream page, navy labels,
+// dark-grey table header, pink data cells and a pink student card.
+const C_PRIMARY   = "#1f2a7a"; // navy – labels, section titles, bars
+const C_HEADER_BG = "#f6cdd2"; // soft pink title strips
 const C_WHITE     = "#ffffff";
-const C_LIGHT     = "#f9f9f9";
-const C_BORDER    = "#bbbbbb";
-const C_TEXT      = "#111111";
-const C_MUTED     = "#555555";
-const C_PANEL     = "#f5cfcf"; // pink info-panel used by preschool/nursery templates
+const C_LIGHT     = "#fff1f2";
+const C_BORDER    = "#e3c2c7";
+const C_TEXT      = "#161626";
+const C_MUTED     = "#5a5a6a";
+const C_PANEL     = "#eaa7a7"; // student card
 const C_PANEL2    = "#dce7f5"; // blue accent panel
+const C_PAGE      = "#fdfcec"; // cream paper
+const C_FRAME     = "#4a4a4a"; // page frame
+const C_TH        = "#6d6d6d"; // table header
+const C_CELL      = "#fde4e7"; // score cells
+const C_ROW_A     = "#fffef4"; // subject / label cells
+const C_ROW_B     = "#fff3f4";
+const C_STAMP     = "#2b3f9c"; // stamp ink
 
 // ─── Resolve student photo from local storage ─────────────────────────────────
 
@@ -107,6 +116,15 @@ function getPrincipalSignature(): string | null {
   return sigs["admin-001"] || null;
 }
 
+function getPrincipalName(): string | undefined {
+  try {
+    const users = getStore<any>(KEYS.users);
+    return users.find((u: any) => u.role === "admin")?.name;
+  } catch {
+    return undefined;
+  }
+}
+
 function safeAddImage(doc: any, dataUrl: string, x: number, y: number, w: number, h: number): boolean {
   try {
     if (!dataUrl || !dataUrl.startsWith("data:")) return false;
@@ -127,7 +145,7 @@ interface Ctx {
   setFill:  (hex: string) => void;
   setDraw:  (hex: string) => void;
   rect: (x: number, y: number, w: number, h: number, fill: string, stroke?: string) => void;
-  text: (txt: string, x: number, y: number, opts?: { align?: "left" | "center" | "right" }) => void;
+  text: (txt: string, x: number, y: number, opts?: { align?: "left" | "center" | "right"; angle?: number }) => void;
   line: (x1: number, y1: number, x2: number, y2: number, color?: string) => void;
   /** Given the current y and the space a block needs, starts a new page (and
    *  returns the fresh top margin) if it wouldn't fit, otherwise returns y
@@ -150,54 +168,103 @@ function makeCtx(doc: any): Ctx {
   };
   const text = (txt: string, x: number, y: number, opts: any = {}) => doc.text(txt, x, y, opts);
   const line = (x1: number, y1: number, x2: number, y2: number, color = C_BORDER) => { setDraw(color); doc.line(x1, y1, x2, y2); };
-  const checkBreak = (y: number, needed: number) => { if (y + needed > PH - 14) { doc.addPage(); return 14; } return y; };
+  const checkBreak = (y: number, needed: number) => { if (y + needed > PH - 14) { doc.addPage(); return 15; } return y; };
+
+  // Cream paper + dark frame on every page (including pages added later).
+  const paintPage = () => {
+    setFill(C_PAGE); doc.rect(0, 0, PW, PH, "F");
+    setDraw(C_FRAME); doc.setLineWidth(0.4); doc.rect(4, 4, PW - 8, PH - 8, "S");
+    doc.setLineWidth(0.2);
+  };
+  paintPage();
+  const origAddPage = doc.addPage.bind(doc);
+  doc.addPage = (...args: any[]) => { const r = origAddPage(...args); paintPage(); return r; };
+
   return { doc, PW, PH, ML, MR, CW, setColor, setFill, setDraw, rect, text, line, checkBreak, getY: () => _y, setY: (v: number) => { _y = v; } };
 }
 
-// ─── Header (logo, school name, student photo, title) ─────────────────────────
+// ─── Header (student card, school identity, title) ────────────────────────────
 
 function drawHeader(ctx: Ctx, result: Result, titleText: string): number {
-  const { doc, ML, CW, PW, rect, text, line, setColor } = ctx;
+  const { doc, ML, CW, PW, rect, text, setColor } = ctx;
   const schoolInfo = getSchoolInfo();
-  const schoolName    = schoolInfo?.name    || "SCHOOL RESULT MANAGEMENT SYSTEM";
+  const schoolName    = (schoolInfo?.name || "SCHOOL RESULT MANAGEMENT SYSTEM").toUpperCase();
   const schoolAddress = schoolInfo?.address || "";
   const schoolMotto   = schoolInfo?.motto   || "";
   const schoolLogo    = schoolInfo?.logo    || null;
   const studentPhoto  = getStudentPhoto(result.admissionNumber);
 
   let y = 12;
-  const HEADER_H = 28;
-  rect(ML, y, CW, HEADER_H, "#f0f4f0");
+  const CARD_W = 68, CARD_H = 27;
 
-  const LOGO_SIZE = 22;
-  if (schoolLogo) safeAddImage(doc, schoolLogo, ML + 3, y + 3, LOGO_SIZE, LOGO_SIZE);
-
-  const PHOTO_W = 18, PHOTO_H = 22;
-  const photoX = ML + CW - PHOTO_W - 3;
-  if (studentPhoto) {
-    safeAddImage(doc, studentPhoto, photoX, y + 3, PHOTO_W, PHOTO_H);
-    ctx.setDraw(C_BORDER);
-    doc.rect(photoX, y + 3, PHOTO_W, PHOTO_H);
+  // Student card (left)
+  rect(ML, y, CARD_W, CARD_H, C_PANEL, "#d58b8b");
+  const PHOTO_W = 18, PHOTO_H = 22, photoX = ML + 2.5, photoY = y + 2.5;
+  if (studentPhoto && safeAddImage(doc, studentPhoto, photoX, photoY, PHOTO_W, PHOTO_H)) {
+    ctx.setDraw("#d58b8b"); doc.rect(photoX, photoY, PHOTO_W, PHOTO_H);
   } else {
-    rect(photoX, y + 3, PHOTO_W, PHOTO_H, "#e5e7eb", C_BORDER);
-    doc.setFontSize(5.5); setColor(C_MUTED);
-    text("PHOTO", photoX + PHOTO_W / 2, y + 3 + PHOTO_H / 2 + 1.5, { align: "center" });
+    rect(photoX, photoY, PHOTO_W, PHOTO_H, "#f3dede", "#d58b8b");
+    doc.setFont("helvetica", "normal"); doc.setFontSize(5.5); setColor(C_MUTED);
+    text("PHOTO", photoX + PHOTO_W / 2, photoY + PHOTO_H / 2 + 1.5, { align: "center" });
+  }
+  const tx = ML + 24;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(6.8); setColor("#111111");
+  let ty = y + 6;
+  (doc.splitTextToSize(s(result.studentName).toUpperCase(), CARD_W - 26) as string[]).slice(0, 2).forEach((ln) => {
+    text(ln, tx, ty); ty += 3.4;
+  });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(5.8);
+  const details: string[] = [s(result.class)];
+  if ((result as any).stream) details.push(`Stream : ${(result as any).stream}`);
+  if (result.admissionNumber) details.push(`Adm. No: ${result.admissionNumber}`);
+  if ((result as any).dob) details.push(`Date of Birth: ${(result as any).dob}`);
+  if (result.gender) details.push(s(result.gender));
+  details.slice(0, 4).forEach((d) => { text(d, tx, ty); ty += 3.1; });
+
+  // School identity (right)
+  const logoSize = 20, rightEdge = ML + CW;
+  if (schoolLogo) safeAddImage(doc, schoolLogo, rightEdge - logoSize, y + 1, logoSize, logoSize);
+  const tr = rightEdge - (schoolLogo ? logoSize + 3 : 0);
+  const avail = tr - (ML + CARD_W) - 4;
+  let fs = 14;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(fs);
+  while (fs > 8 && doc.getTextWidth(schoolName) > avail) { fs -= 0.5; doc.setFontSize(fs); }
+  setColor("#14142b");
+  text(schoolName, tr, y + 8, { align: "right" });
+  let iy = y + 13.5;
+  if (schoolMotto) {
+    doc.setFontSize(8.5); setColor(C_PRIMARY);
+    text(schoolMotto.toUpperCase(), tr, iy, { align: "right" }); iy += 4.5;
+  }
+  if (schoolAddress) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(5.8); setColor(C_MUTED);
+    (doc.splitTextToSize(schoolAddress, avail * 0.8) as string[]).slice(0, 2).forEach((ln) => {
+      text(ln, tr, iy, { align: "right" }); iy += 3;
+    });
   }
 
-  const textLeft = ML + LOGO_SIZE + 6, textRight = photoX - 3, textCX = (textLeft + textRight) / 2;
-  doc.setFontSize(11); doc.setFont("helvetica", "bold"); setColor(C_PRIMARY);
-  text(schoolName, textCX, y + 7, { align: "center" });
-  if (schoolMotto) { doc.setFontSize(7); doc.setFont("helvetica", "italic"); setColor(C_MUTED); text(schoolMotto, textCX, y + 13, { align: "center" }); }
-  if (schoolAddress) { doc.setFontSize(6.5); doc.setFont("helvetica", "normal"); text(schoolAddress, textCX, y + 19, { align: "center" }); }
-
-  y += HEADER_H + 3;
-
-  doc.setFontSize(9.5); doc.setFont("helvetica", "bold"); setColor(C_PRIMARY);
+  // Title + class teacher / attendance line
+  y += CARD_H + 7;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); setColor(C_TEXT);
   text(titleText, PW / 2, y, { align: "center" });
-  y += 2;
-  line(ML, y, ML + CW, y, C_PRIMARY);
-  y += 4;
-  return y;
+  y += 4.6;
+  const att = result.attendance ?? { opened: 0, present: 0, absent: 0 };
+  const teacher = getTeacherName(result.createdBy);
+  const sub = [
+    teacher ? `Class Teacher: ${teacher}` : "",
+    `No of Times Opened: ${att.opened ?? 0}`,
+    `No of Times Present: ${att.present ?? 0}`,
+    `No of Times Absent: ${att.absent ?? 0}`,
+  ].filter(Boolean).join("      ");
+  doc.setFont("helvetica", "normal"); doc.setFontSize(6);
+  text(sub, PW / 2, y, { align: "center" });
+  return y + 7;
+}
+
+function drawSectionTitle(ctx: Ctx, y: number, label: string): number {
+  ctx.doc.setFont("helvetica", "bold"); ctx.doc.setFontSize(8.5); ctx.setColor(C_PRIMARY);
+  ctx.text(label, ctx.ML, y + 2);
+  return y + 5;
 }
 
 // ─── Generic labeled info bar: rows of [label, value] triples ─────────────────
@@ -231,7 +298,7 @@ function drawGradeScaleBox(ctx: Ctx, x: number, y: number, w: number, scale: rea
   text(title, x + w / 2, y + 4, { align: "center" });
   y += 6;
   scale.forEach(({ min, max, grade, remark }, idx) => {
-    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    const bg = idx % 2 === 0 ? C_ROW_A : C_ROW_B;
     rect(x, y, w, 5, bg, C_BORDER);
     doc.setFont("helvetica", "bold"); doc.setFontSize(6.8); setColor(C_PRIMARY);
     text(grade, x + 2, y + 3.5);
@@ -248,12 +315,12 @@ function drawRatingTable(ctx: Ctx, sx: number, sy: number, sw: number, title: st
   const { rect, text, doc, setColor } = ctx;
   rect(sx, sy, sw, 6, C_PRIMARY);
   doc.setFont("helvetica", "bold"); doc.setFontSize(7); setColor(C_WHITE);
-  text(title, sx + sw * 0.30, sy + 4);
+  text(title, sx + 2, sy + 4);
   const labelW = sw * 0.60, numW = sw * 0.08;
   [5, 4, 3, 2, 1].forEach((n, i) => text(String(n), sx + labelW + numW * i + numW / 2, sy + 4, { align: "center" }));
   sy += 6;
   labels.forEach((label, idx) => {
-    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    const bg = idx % 2 === 0 ? C_ROW_A : C_ROW_B;
     rect(sx, sy, sw, 5, bg, C_BORDER);
     doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); setColor(C_TEXT);
     text(s(label), sx + 2, sy + 3.5);
@@ -271,56 +338,159 @@ function drawRatingTable(ctx: Ctx, sx: number, sy: number, sw: number, title: st
   return sy + 2;
 }
 
-// ─── Comment block (title bar + text + sign line) ──────────────────────────────
+// ─── Comment block (navy title, ruled remark, small name) ─────────────────────
 
-function drawComment(ctx: Ctx, title: string, comment: string, name: string | undefined, startY: number, h = 20): number {
-  const { ML, CW, rect, text, doc, setColor } = ctx;
-  rect(ML, startY, CW, 5.5, C_PRIMARY);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); setColor(C_WHITE);
-  text(title, ML + 3, startY + 3.8);
-  startY += 5.5;
-  rect(ML, startY, CW, h, C_WHITE, C_BORDER);
+function drawComment(ctx: Ctx, title: string, comment: string, name: string | undefined, startY: number): number {
+  const { ML, CW, text, doc, setColor, line } = ctx;
+  startY = ctx.checkBreak(startY, 24);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); setColor(C_PRIMARY);
+  text(title.replace(/'s Remark$/, "").replace(/ Remark$/, ""), ML, startY + 3);
+  const top = startY + 6;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); setColor(C_TEXT);
-  const wrapped = doc.splitTextToSize(s(comment, ""), CW - 6);
-  wrapped.slice(0, 3).forEach((ln: string, i: number) => text(ln, ML + 3, startY + 5 + i * 5));
+  const lines = (doc.splitTextToSize(s(comment, ""), CW - 2) as string[]).slice(0, 3);
+  lines.forEach((ln, i) => text(ln, ML + 1, top + 3 + i * 4.2));
+  const ruleY = top + 3 + Math.max(lines.length - 1, 0) * 4.2 + 2.2;
+  line(ML, ruleY, ML + CW, ruleY, C_BORDER);
   if (name) {
-    doc.setFontSize(7); doc.setFont("helvetica", "bold"); setColor(C_MUTED);
-    text(`Name: ${name}`, ML + 3, startY + h - 3);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(5.8); setColor(C_PRIMARY);
+    text(name.toUpperCase(), ML + 1, ruleY + 3.6);
+    return ruleY + 7;
   }
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7); setColor(C_MUTED);
-  text("Sign: ______________________", ML + CW - 3, startY + h - 3, { align: "right" });
-  return startY + h + 3;
+  return ruleY + 4;
 }
 
-// ─── Signature row (two boxes side by side) ────────────────────────────────────
+// ─── Image fit (keeps aspect ratio) ────────────────────────────────────────────
+
+function fitImage(doc: any, dataUrl: string, bx: number, by: number, bw: number, bh: number): boolean {
+  try {
+    if (!dataUrl || !dataUrl.startsWith("data:")) return false;
+    const props = doc.getImageProperties(dataUrl);
+    const ar = props.width / props.height;
+    let w = bw, h = bw / ar;
+    if (h > bh) { h = bh; w = bh * ar; }
+    const fmt = props.fileType || (dataUrl.includes("data:image/png") ? "PNG" : "JPEG");
+    doc.addImage(dataUrl, fmt, bx + (bw - w) / 2, by + (bh - h) / 2, w, h);
+    return true;
+  } catch {
+    return safeAddImage(doc, dataUrl, bx, by, bw, bh);
+  }
+}
+
+// ─── Generated school stamp ────────────────────────────────────────────────────
+// Circular ink seal: school name curved along the top, address (or motto) along
+// the bottom, "OFFICIAL" + issue date in the centre. Slightly tilted and
+// semi-transparent so it reads as a real rubber stamp.
+
+function shortAddress(addr: string, max = 30): string {
+  const parts = addr.split(",").map((p) => p.trim()).filter(Boolean);
+  let out = "";
+  for (const p of parts) {
+    const next = out ? `${out}, ${p}` : p;
+    if (next.length > max) break;
+    out = next;
+  }
+  return (out || addr.slice(0, max)).toUpperCase();
+}
+
+function drawSchoolStamp(ctx: Ctx, cx: number, cy: number, R: number): void {
+  const { doc, setColor, setDraw, setFill } = ctx;
+  const info = getSchoolInfo();
+  const name = (info?.name || "SCHOOL RESULT MANAGEMENT SYSTEM").toUpperCase();
+  const bottom = info?.address ? shortAddress(info.address) : info?.motto ? info.motto.toUpperCase() : "REPORT SHEET";
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+
+  const gs = (o: number) => { try { doc.setGState(new doc.GState({ opacity: o })); } catch { /* opacity unsupported */ } };
+  gs(0.85);
+  setDraw(C_STAMP); setColor(C_STAMP); setFill(C_STAMP);
+
+  doc.setLineWidth(0.7);  doc.circle(cx, cy, R, "S");
+  doc.setLineWidth(0.25); doc.circle(cx, cy, R - 1.3, "S");
+  doc.setLineWidth(0.3);  doc.circle(cx, cy, R - 9.4, "S");
+
+  const tilt = (7 * Math.PI) / 180; // whole stamp rotated 7° anticlockwise
+  const band = R - 5.35;            // centre of the lettering band
+
+  const arc = (str: string, where: "top" | "bottom", rBase: number, maxSpanDeg: number, fs0: number) => {
+    if (!str) return;
+    doc.setFont("helvetica", "bold");
+    let fs = fs0; doc.setFontSize(fs);
+    const gap = 0.35;
+    const measure = () => str.split("").reduce((a, ch) => a + doc.getTextWidth(ch) + gap, -gap);
+    let total = measure();
+    const maxLen = ((maxSpanDeg * Math.PI) / 180) * rBase;
+    if (total > maxLen) { fs = Math.max(4, (fs0 * maxLen) / total); doc.setFontSize(fs); total = measure(); }
+    let a = -(total / rBase) / 2;
+    str.split("").forEach((ch) => {
+      const w = doc.getTextWidth(ch);
+      const mid = a + w / 2 / rBase;
+      if (where === "top") {
+        const th = mid - tilt;
+        const px = cx + rBase * Math.sin(th), py = cy - rBase * Math.cos(th);
+        doc.text(ch, px - (w / 2) * Math.cos(th), py - (w / 2) * Math.sin(th), { angle: (-th * 180) / Math.PI });
+      } else {
+        const al = mid + tilt;
+        const px = cx + rBase * Math.sin(al), py = cy + rBase * Math.cos(al);
+        doc.text(ch, px - (w / 2) * Math.cos(al), py + (w / 2) * Math.sin(al), { angle: (al * 180) / Math.PI });
+      }
+      a += (w + gap) / rBase;
+    });
+  };
+  arc(name, "top", band - 0.95, 165, 7.5);
+  arc(bottom, "bottom", band + 0.95, 120, 6);
+
+  // separator dots between the two arcs
+  [-1, 1].forEach((side) => {
+    const th = side * (Math.PI / 2) - tilt;
+    doc.circle(cx + band * Math.sin(th), cy - band * Math.cos(th), 0.55, "F");
+  });
+
+  // centre lettering (tilted with the stamp)
+  const bx = Math.cos(tilt), by = -Math.sin(tilt);   // along-text direction
+  const dx = Math.sin(tilt), dy = Math.cos(tilt);    // "down" direction
+  const centreText = (str: string, off: number, fs: number) => {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(fs);
+    const w = doc.getTextWidth(str);
+    const px = cx + off * dx, py = cy + off * dy;
+    doc.text(str, px - (w / 2) * bx, py - (w / 2) * by, { angle: (tilt * 180) / Math.PI });
+  };
+  centreText("OFFICIAL", -2.2, 5.4);
+  doc.setLineWidth(0.2);
+  doc.line(cx + 0.2 * dx - 4.5 * bx, cy + 0.2 * dy - 4.5 * by, cx + 0.2 * dx + 4.5 * bx, cy + 0.2 * dy + 4.5 * by);
+  centreText(dateStr, 3.6, 4.4);
+
+  gs(1);
+  doc.setLineWidth(0.2);
+}
+
+// ─── Signature row: teacher line (left) + stamp with principal signature (right)
 
 function drawSignatureRow(ctx: Ctx, y: number, leftLabel: string, leftSig: string | null, rightLabel: string, rightSig: string | null): number {
-  const { ML, CW, rect, text, doc, setColor } = ctx;
-  const SIG_W = CW * 0.42, SIG_H = 20, sigGap = CW - 2 * SIG_W;
+  const { ML, CW, text, doc, setColor, line } = ctx;
+  const R = 18;
+  y = ctx.checkBreak(y, R * 2 + 10);
 
-  rect(ML, y, SIG_W, SIG_H, C_WHITE, C_BORDER);
-  doc.setFontSize(7); doc.setFont("helvetica", "bold"); setColor(C_PRIMARY);
-  text(leftLabel, ML + SIG_W / 2, y + 4, { align: "center" });
-  if (leftSig) safeAddImage(ctx.doc, leftSig, ML + 4, y + 5, SIG_W - 8, SIG_H - 10);
-  doc.setFont("helvetica", "normal"); setColor(C_MUTED); doc.setFontSize(6.5);
-  text("Signature & Date: _______________", ML + 4, y + SIG_H - 3);
+  // Teacher signature
+  const lw = CW * 0.34, lineY = y + R * 2 - 5;
+  if (leftSig) fitImage(doc, leftSig, ML + 4, lineY - 15, lw - 8, 14);
+  line(ML, lineY, ML + lw, lineY, C_MUTED);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(6.8); setColor(C_PRIMARY);
+  text(leftLabel, ML + lw / 2, lineY + 4, { align: "center" });
 
-  const rSigX = ML + SIG_W + sigGap;
-  rect(rSigX, y, SIG_W, SIG_H, C_WHITE, C_BORDER);
-  doc.setFontSize(7); doc.setFont("helvetica", "bold"); setColor(C_PRIMARY);
-  text(rightLabel, rSigX + SIG_W / 2, y + 4, { align: "center" });
-  if (rightSig) safeAddImage(ctx.doc, rightSig, rSigX + 4, y + 5, SIG_W - 8, SIG_H - 10);
-  doc.setFont("helvetica", "normal"); setColor(C_MUTED); doc.setFontSize(6.5);
-  text("Signature & Date: _______________", rSigX + 4, y + SIG_H - 3);
+  // Stamp, then the principal's signature drawn over it
+  const cx = ML + CW - R - 10, cy = y + R + 1;
+  drawSchoolStamp(ctx, cx, cy, R);
+  if (rightSig) fitImage(doc, rightSig, cx - 17, cy - 6, 34, 13);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(6.8); setColor(C_PRIMARY);
+  text(rightLabel, cx, y + R * 2 + 5, { align: "center" });
 
-  return y + SIG_H + 5;
+  return y + R * 2 + 12;
 }
 
 // ─── Footer (next term / session line + page footer) ───────────────────────────
 
 function drawFooter(ctx: Ctx, result: Result, y: number, nextLabelOverride?: string) {
   const { ML, CW, PW, PH, doc, text, line, setColor } = ctx;
-  y = ctx.checkBreak(y, 14);
+  y = ctx.checkBreak(y, 8);
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); setColor(C_TEXT);
   const nextLabel = nextLabelOverride || (result.term === "Third" ? "Next Session Begins" : "Next Term Begins");
   text(`${nextLabel}: ____________________`, ML, y);
@@ -352,7 +522,7 @@ function drawGradeAnalysis(ctx: Ctx, x: number, y: number, w: number, subjects: 
   doc.setFontSize(6.5); setColor(C_TEXT);
   grades.forEach((g, i) => { doc.setFont("helvetica", "bold"); text(g, x + i * colW + colW / 2, y + 3.5, { align: "center" }); });
   y += 5;
-  rect(x, y, w, 5, C_WHITE, C_BORDER);
+  rect(x, y, w, 5, C_ROW_A, C_BORDER);
   grades.forEach((g, i) => { doc.setFont("helvetica", "normal"); text(String(counts[g] ?? 0), x + i * colW + colW / 2, y + 3.5, { align: "center" }); });
   y += 5;
   return y + 3;
@@ -367,7 +537,7 @@ function drawSummaryBox(ctx: Ctx, x: number, y: number, w: number, title: string
   text(title, x + w / 2, y + 4, { align: "center" });
   y += 6;
   rows.forEach(([label, val], idx) => {
-    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    const bg = idx % 2 === 0 ? C_ROW_A : C_ROW_B;
     rect(x, y, w, 5.5, bg, C_BORDER);
     doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); setColor(C_TEXT);
     text(label, x + 3, y + 3.8);
@@ -386,7 +556,7 @@ function drawAttendanceBox(ctx: Ctx, x: number, y: number, w: number, result: Re
   y += 6;
   const att = result.attendance ?? { opened: 0, present: 0, absent: 0 };
   ([["School Days", String(att.opened ?? 0)], ["Present", String(att.present ?? 0)], ["Absent", String(att.absent ?? 0)]] as [string, string][]).forEach(([l, v], idx) => {
-    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    const bg = idx % 2 === 0 ? C_ROW_A : C_ROW_B;
     rect(x, y, w, 5.5, bg, C_BORDER);
     doc.setFont("helvetica", "normal"); doc.setFontSize(7); setColor(C_TEXT);
     text(l, x + 2, y + 3.8);
@@ -403,38 +573,93 @@ interface SubjectCol {
   header: string;
   width: number; // fraction of CW
   align?: "left" | "center" | "right";
+  /** When any column sets this, a "MARK OBTAINABLE" row is drawn under the header. */
+  obtainable?: string;
   get: (sub: Subject, idx: number) => string;
 }
 
 function drawSubjectTable(ctx: Ctx, y: number, columns: SubjectCol[], subjects: Subject[]): number {
-  const { ML, CW, rect, text, doc, setColor, checkBreak } = ctx;
+  const { ML, CW, rect, text, doc, setColor } = ctx;
   const widths = columns.map((c) => c.width * CW);
-  const TH_H = 7, ROW_H = 6;
+  const colX = (i: number) => ML + widths.slice(0, i).reduce((a, b) => a + b, 0);
 
-  rect(ML, y, CW, TH_H, C_PRIMARY);
-  doc.setFontSize(6.6); doc.setFont("helvetica", "bold"); setColor(C_WHITE);
+  // Header height grows to fit the longest rotated label.
+  doc.setFont("helvetica", "bold"); doc.setFontSize(6.4);
+  const longest = Math.max(0, ...columns.slice(1).map((c) => doc.getTextWidth(c.header)));
+  const TH_H = Math.max(8, Math.min(26, longest + 5));
+  const ROW_H = 6;
+
+  y = ctx.checkBreak(y, TH_H + ROW_H * 2);
+  rect(ML, y, CW, TH_H, C_TH);
+  setColor(C_WHITE);
   columns.forEach((c, i) => {
-    const cx = ML + widths.slice(0, i).reduce((a, b) => a + b, 0);
-    text(c.header, cx + widths[i] / 2, y + TH_H - 1.5, { align: "center" });
+    if (i === 0) text(c.header, colX(i) + 2, y + TH_H - 2);
+    else {
+      text(c.header, colX(i) + widths[i] / 2 + 1.1, y + TH_H - 2, { angle: 90 });
+      ctx.line(colX(i), y + 1, colX(i), y + TH_H - 1, "#9a9a9a");
+    }
   });
   y += TH_H;
 
-  subjects.forEach((sub, idx) => {
-    y = ctx.checkBreak(y, ROW_H + 2);
-    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
-    rect(ML, y, CW, ROW_H, bg, C_BORDER);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7); setColor(C_TEXT);
-    let xx = ML;
+  if (columns.some((c) => c.obtainable !== undefined)) {
+    const H = 5.4;
+    rect(ML, y, CW, H, C_ROW_A, C_BORDER);
     columns.forEach((c, i) => {
-      const align = c.align || (i === 0 ? "left" : "center");
-      const tx = align === "center" ? xx + widths[i] / 2 : align === "right" ? xx + widths[i] - 2 : xx + 2;
-      text(c.get(sub, idx), tx, y + ROW_H - 1.5, { align });
-      xx += widths[i];
+      doc.setFontSize(6.4); setColor(C_PRIMARY);
+      if (i === 0) { doc.setFont("helvetica", "bolditalic"); text("MARK OBTAINABLE", colX(i) + widths[i] - 2, y + 3.8, { align: "right" }); }
+      else if (c.obtainable) { doc.setFont("helvetica", "bold"); text(c.obtainable, colX(i) + widths[i] / 2, y + 3.8, { align: "center" }); }
+    });
+    y += H;
+  }
+
+  subjects.forEach((sub) => {
+    y = ctx.checkBreak(y, ROW_H + 2);
+    columns.forEach((c, i) => {
+      rect(colX(i), y, widths[i], ROW_H, i === 0 ? C_ROW_A : C_CELL, C_BORDER);
+      setColor(C_TEXT);
+      const idx = subjects.indexOf(sub);
+      const raw = c.get(sub, idx);
+      if (i === 0) {
+        const label = raw.toUpperCase();
+        let fs = 7; doc.setFont("helvetica", "normal"); doc.setFontSize(fs);
+        while (fs > 5 && doc.getTextWidth(label) > widths[i] - 3) { fs -= 0.3; doc.setFontSize(fs); }
+        text(label, colX(i) + 2, y + ROW_H - 1.8);
+      } else {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7);
+        const align = c.align || "center";
+        const tx = align === "center" ? colX(i) + widths[i] / 2 : align === "right" ? colX(i) + widths[i] - 2 : colX(i) + 2;
+        text(raw, tx, y + ROW_H - 1.8, { align });
+      }
     });
     y += ROW_H;
   });
-  ctx.line(ML, y, ML + CW, y);
-  return y + 5;
+  return y + 4;
+}
+
+// ─── Totals line + grade legend (mid-term sheet footer block) ──────────────────
+
+function drawTotalsLine(ctx: Ctx, y: number, items: [string, string][]): number {
+  const { ML, text, doc, setColor } = ctx;
+  let x = ML;
+  items.forEach(([label, val]) => {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); setColor(C_PRIMARY);
+    text(`${label}:`, x, y);
+    x += doc.getTextWidth(`${label}:`) + 1.8;
+    doc.setFont("helvetica", "bold");
+    text(val, x, y);
+    x += doc.getTextWidth(val) + 9;
+  });
+  return y + 6;
+}
+
+function drawGradeLegend(ctx: Ctx, y: number, scale: readonly { min: number; max: number; grade: string }[]): number {
+  const { ML, CW, text, doc, setColor } = ctx;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(6.6); setColor(C_PRIMARY);
+  text("Grade Legend:", ML, y);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(6.4);
+  const str = scale.map((g) => `${g.grade} (${g.min}-${g.max})`).join(",   ");
+  (doc.splitTextToSize(str, CW - 2) as string[]).forEach((ln, i) => text(ln, ML, y + 3.6 + i * 3.2));
+  return y + 10;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -473,7 +698,7 @@ function renderPreschool(ctx: Ctx, result: Result): void {
 
   let py = y, cy = y;
   personalRows.forEach(([l, v], idx) => {
-    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    const bg = idx % 2 === 0 ? C_ROW_A : C_ROW_B;
     rect(ML, py, panelW, 5, bg, C_BORDER);
     doc.setFont("helvetica", "bold"); doc.setFontSize(7); setColor(C_TEXT);
     text(l, ML + 2, py + 3.4);
@@ -482,7 +707,7 @@ function renderPreschool(ctx: Ctx, result: Result): void {
     py += 5;
   });
   classRows.forEach(([l, v], idx) => {
-    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    const bg = idx % 2 === 0 ? C_ROW_A : C_ROW_B;
     rect(px2, cy, panel2W, 5, bg, C_BORDER);
     doc.setFont("helvetica", "bold"); doc.setFontSize(7); setColor(C_TEXT);
     text(l, px2 + 2, cy + 3.4);
@@ -516,7 +741,7 @@ function renderPreschool(ctx: Ctx, result: Result): void {
     ["E", "S", "N"].forEach((m, i) => text(m, sx + labelW + markW * i + markW / 2, sy + 3.7, { align: "center" }));
     sy += 5.5;
     domain.items.forEach((item, idx) => {
-      const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+      const bg = idx % 2 === 0 ? C_ROW_A : C_ROW_B;
       rect(sx, sy, sw, 4.6, bg, C_BORDER);
       doc.setFont("helvetica", "normal"); doc.setFontSize(6); setColor(C_TEXT);
       const lines = doc.splitTextToSize(item.label, labelW - 2);
@@ -547,7 +772,7 @@ function renderPreschool(ctx: Ctx, result: Result): void {
   doc.setFont("helvetica", "bold"); doc.setFontSize(7); setColor(C_WHITE);
   text("Grading Key", ML + CW / 2, y + 4, { align: "center" });
   y += 6;
-  rect(ML, y, CW, 5, C_WHITE, C_BORDER);
+  rect(ML, y, CW, 5, C_ROW_A, C_BORDER);
   doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); setColor(C_TEXT);
   const keyStr = (Object.entries(CHECKLIST_MARK_KEY) as [ChecklistMark, string][]).map(([k, v]) => `${k} = ${v}`).join("      ");
   text(keyStr, ML + 3, y + 3.5);
@@ -580,7 +805,7 @@ function drawRatedDomainBlock(ctx: Ctx, sx: number, sy: number, sw: number, doma
   [4, 3, 2, 1].forEach((n, i) => text(String(n), sx + labelW + numW * i + numW / 2, sy + 3.7, { align: "center" }));
   sy += 5.5;
   domain.items.forEach((item, idx) => {
-    const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+    const bg = idx % 2 === 0 ? C_ROW_A : C_ROW_B;
     rect(sx, sy, sw, 4.6, bg, C_BORDER);
     doc.setFont("helvetica", "normal"); doc.setFontSize(6); setColor(C_TEXT);
     const lines = doc.splitTextToSize(item.label, labelW - 2);
@@ -650,7 +875,7 @@ function renderNursery(ctx: Ctx, result: Result): void {
   doc.setFont("helvetica", "bold"); doc.setFontSize(7); setColor(C_WHITE);
   text("Domain Rating Key", ML + CW / 2, y + 4, { align: "center" });
   y += 6;
-  rect(ML, y, CW, 5, C_WHITE, C_BORDER);
+  rect(ML, y, CW, 5, C_ROW_A, C_BORDER);
   doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); setColor(C_TEXT);
   text(NURSERY_RATING_KEY.join("      "), ML + 3, y + 3.5);
   y += 8;
@@ -720,7 +945,7 @@ function renderPrimary(ctx: Ctx, result: Result): void {
   doc.setFont("helvetica", "bold"); doc.setFontSize(7); setColor(C_WHITE);
   text("Rating Indices", ML + leftW / 2, leftY + 4, { align: "center" });
   leftY += 6;
-  rect(ML, leftY, leftW, RATING_SCALE_NOTES.length * 4.2 + 2, C_WHITE, C_BORDER);
+  rect(ML, leftY, leftW, RATING_SCALE_NOTES.length * 4.2 + 2, C_ROW_A, C_BORDER);
   RATING_SCALE_NOTES.forEach((note, idx) => {
     doc.setFont("helvetica", "normal"); doc.setFontSize(5.8); setColor(C_TEXT);
     text(s(note), ML + 2, leftY + 3.2 + idx * 4.2);
@@ -825,6 +1050,7 @@ function renderStandard(ctx: Ctx, result: Result): void {
   const totalW = cols.reduce((a, c) => a + c.width, 0);
   cols.forEach((c) => (c.width = c.width / totalW));
 
+  y = drawSectionTitle(ctx, y, "ACADEMIC");
   y = drawSubjectTable(ctx, y, cols, subjects);
 
   const leftW = CW * 0.62, rightW = CW * 0.36, gap = CW * 0.02, rightX = ML + leftW + gap;
@@ -854,7 +1080,7 @@ function renderStandard(ctx: Ctx, result: Result): void {
   doc.setFont("helvetica", "bold"); doc.setFontSize(7); setColor(C_WHITE);
   text("Rating Indices", ML + CW * 0.5 + CW * 0.24, y + 4, { align: "center" });
   let riY = y + 6;
-  rect(ML + CW * 0.5, riY, CW * 0.48, RATING_SCALE_NOTES.length * 4.2 + 2, C_WHITE, C_BORDER);
+  rect(ML + CW * 0.5, riY, CW * 0.48, RATING_SCALE_NOTES.length * 4.2 + 2, C_ROW_A, C_BORDER);
   RATING_SCALE_NOTES.forEach((note, idx) => {
     doc.setFont("helvetica", "normal"); doc.setFontSize(5.8); setColor(C_TEXT);
     text(s(note), ML + CW * 0.5 + 2, riY + 3.2 + idx * 4.2);
@@ -865,7 +1091,7 @@ function renderStandard(ctx: Ctx, result: Result): void {
 
   y = drawComment(ctx, "Teacher's Remark", s(result.teacherComment), getTeacherName(result.createdBy), y);
   ctx.setY(y);
-  y = drawComment(ctx, "Principal's Remark", s(result.principalComment), undefined, y);
+  y = drawComment(ctx, "Principal's Remark", s(result.principalComment), getPrincipalName(), y);
   ctx.setY(y);
 
     y = ctx.checkBreak(y, 32);
@@ -881,56 +1107,47 @@ function renderStandard(ctx: Ctx, result: Result): void {
 
 function renderMidterm(ctx: Ctx, result: Result): void {
   const { ML, CW } = ctx;
-  let y = drawHeader(ctx, result, `${s(result.term).toUpperCase()} TERM (MID TERM) PERFORMANCE REPORT`);
-
-  const infoW = CW * 0.70, attW = CW * 0.28, attX = ML + infoW + CW * 0.02;
-  const infoBottom = drawInfoBar({ ...ctx, CW: infoW } as Ctx, y, [
-    [["Name:", s(result.studentName)], ["Class:", s(result.class)]],
-    [["Admsn No:", s(result.admissionNumber)], ["Session:", s(result.session)]],
-    [["Gender:", s(result.gender)], ["Age:", s(result.age)]],
-  ]);
-  const attBottom = drawAttendanceBox(ctx, attX, y, attW, result);
-  y = Math.max(infoBottom, attBottom);
-  ctx.setY(y);
+  let y = drawHeader(ctx, result, `MID ${s(result.term).toUpperCase()} TERM ${s(result.session)} SESSION REPORT`);
+  y = drawSectionTitle(ctx, y, "ACADEMIC");
 
   const subjects = result.subjects ?? [];
   const cols: SubjectCol[] = [
-    { header: "Subject", width: 0.24, align: "left", get: (sub) => s(sub.name, "Subject") },
-    { header: "1st C.A.", width: 0.13, get: (sub: any) => s(sub.midtermCA1) },
-    { header: "2nd C.A.", width: 0.13, get: (sub: any) => s(sub.midtermCA2) },
-    { header: "Total", width: 0.12, get: (sub) => s(sub.score) },
-    { header: "% Total", width: 0.11, get: (sub: any) => (sub.score != null ? `${((sub.score / 20) * 100).toFixed(1)}%` : "—") },
-    { header: "Grade", width: 0.09, get: (sub) => s(sub.grade) },
-    { header: "Position", width: 0.09, get: (sub: any) => (sub.subjectPosition ? ordinal(sub.subjectPosition) : "—") },
-    { header: "Remark", width: 0.09, align: "left", get: (sub) => s(sub.remark) },
+    { header: "Subject", width: 0.30, align: "left", get: (sub) => s(sub.name, "Subject") },
+    { header: "First Test",       width: 0.07, obtainable: "10", get: (sub: any) => s(sub.midtermCA1) },
+    { header: "Second Test",      width: 0.07, obtainable: "10", get: (sub: any) => s(sub.midtermCA2) },
+    { header: "Total Score",      width: 0.07, get: (sub) => s(sub.score) },
+    { header: "Total Obtainable", width: 0.07, get: () => "20" },
+    { header: "Percentage",       width: 0.08, get: (sub: any) => (sub.score != null ? `${((sub.score / 20) * 100).toFixed(1)}%` : "—") },
+    { header: "Grade",            width: 0.06, get: (sub) => s(sub.grade) },
+    { header: "Position",         width: 0.07, get: (sub: any) => (sub.subjectPosition ? ordinal(sub.subjectPosition) : "—") },
+    { header: "Lowest",           width: 0.07, get: (sub: any) => s(sub.classMin) },
+    { header: "Class Average",    width: 0.07, get: (sub: any) => (sub.classAvg != null ? Number(sub.classAvg).toFixed(1) : "—") },
+    { header: "Highest",          width: 0.07, get: (sub: any) => s(sub.classMax) },
   ];
   const totalW = cols.reduce((a, c) => a + c.width, 0);
   cols.forEach((c) => (c.width = c.width / totalW));
   y = drawSubjectTable(ctx, y, cols, subjects);
 
-  const leftW = CW * 0.6, rightW = CW * 0.38, gap = CW * 0.02, rightX = ML + leftW + gap;
-  let leftY = drawGradeAnalysis(ctx, ML, y, leftW, subjects, MIDTERM_GRADING_SCALE);
-  let rightY = drawSummaryBox(ctx, rightX, y, rightW, "Mid Term Performance Summary", [
+  // Totals line
+  const totalScore = result.totalScore ?? subjects.reduce((a, sub) => a + (sub.score ?? 0), 0);
+  const studentAvg = subjects.length ? (totalScore / subjects.length).toFixed(2) : "—";
+  const avgs = subjects.map((sub: any) => sub.classAvg).filter((v: any) => typeof v === "number");
+  const classAvg = avgs.length ? (avgs.reduce((a: number, b: number) => a + b, 0) / avgs.length).toFixed(2) : "—";
+  y = ctx.checkBreak(y, 40);
+  const totals: [string, string][] = [
     ["Total Obtainable", String(subjects.length * 20)],
-    ["Total Obtained", s(result.totalScore, "0")],
-    ["Total Subjects", String(subjects.length)],
-    ["% Tage", result.averageScore != null ? result.averageScore.toFixed(1) + "%" : "—"],
-    ["Grade", s(result.overallGrade)],
-  ]);
-
-  y = Math.max(leftY, rightY) + 2;
-  ctx.setY(y);
-
-    y = ctx.checkBreak(y, 35);
-  y = drawGradeScaleBox(ctx, ML, y, CW, MIDTERM_GRADING_SCALE, "Grade Scale");
-  ctx.setY(y);
+    ["Total Score", String(totalScore)],
+    ["Student Average", studentAvg],
+    ["Class Average", classAvg],
+  ];
+  if (result.position) totals.push(["Position", ordinal(result.position)]);
+  y = drawTotalsLine(ctx, y + 2, totals);
+  y = drawGradeLegend(ctx, y + 1, MIDTERM_GRADING_SCALE);
 
   y = drawComment(ctx, "Class Teacher's Remark", s(result.teacherComment), getTeacherName(result.createdBy), y);
-  ctx.setY(y);
-  y = drawComment(ctx, "Principal's Remark", s(result.principalComment), undefined, y);
-  ctx.setY(y);
+  y = drawComment(ctx, "Principal's Remark", s(result.principalComment), getPrincipalName(), y);
 
-    y = ctx.checkBreak(y, 14);
+  y = drawSignatureRow(ctx, y + 2, "Class Teacher's Signature", getTeacherSignature(result.createdBy), "Principal's Signature & Stamp", getPrincipalSignature());
   drawFooter(ctx, result, y, "Next School Begins");
 }
 
@@ -955,6 +1172,14 @@ export async function generateResultPDF(result: Result): Promise<Blob> {
   const style = getReportStyle(result.class, result.resultType);
   const renderer = RENDERERS[style] || renderStandard;
   renderer(ctx, result);
+
+  // "page i of N" label, top-left of every page
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); ctx.setColor(C_PRIMARY);
+    doc.text(`page ${i} of ${pages}`, ctx.ML, 9);
+  }
 
   return doc.output("blob");
 }
