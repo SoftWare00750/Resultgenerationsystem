@@ -23,7 +23,7 @@ import {
 import { authService } from "@/lib/services/auth";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
-import { Plus, Copy, RefreshCw, Trash2, Key, CheckCircle2, XCircle, Clock, Shield } from "lucide-react";
+import { Plus, Copy, RefreshCw, Trash2, Key, CheckCircle2, Clock, Shield } from "lucide-react";
 import { UserRole } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
@@ -31,14 +31,15 @@ interface AuthCode {
   $id: string;
   code: string;
   role: string;
-  isUsed: boolean;
+  useCount: number;
   expiresAt: string;
   createdAt: string;
   usedBy?: string;
+  lastUsedAt?: string;
   createdBy: string;
 }
 
-type FilterStatus = "all" | "active" | "used" | "expired";
+type FilterStatus = "all" | "active" | "expired";
 
 export default function AuthCodesPage() {
   const { user } = useAuthStore();
@@ -99,8 +100,8 @@ export default function AuthCodesPage() {
     }
   };
 
-  const getCodeStatus = (code: AuthCode): "active" | "used" | "expired" => {
-    if (code.isUsed) return "used";
+  // A code stays active (and reusable) until it expires or is deleted.
+  const getCodeStatus = (code: AuthCode): "active" | "expired" => {
     if (new Date(code.expiresAt) < new Date()) return "expired";
     return "active";
   };
@@ -113,7 +114,6 @@ export default function AuthCodesPage() {
 
   const statusCounts = {
     active: codes.filter((c) => getCodeStatus(c) === "active").length,
-    used: codes.filter((c) => getCodeStatus(c) === "used").length,
     expired: codes.filter((c) => getCodeStatus(c) === "expired").length,
   };
 
@@ -121,7 +121,6 @@ export default function AuthCodesPage() {
     const status = getCodeStatus(code);
     const config = {
       active: { cls: "bg-green-100 text-green-700", icon: <CheckCircle2 className="h-3 w-3" />, label: "Active" },
-      used: { cls: "bg-slate-100 text-slate-600", icon: <XCircle className="h-3 w-3" />, label: "Used" },
       expired: { cls: "bg-amber-100 text-amber-700", icon: <Clock className="h-3 w-3" />, label: "Expired" },
     };
     const c = config[status];
@@ -155,7 +154,7 @@ export default function AuthCodesPage() {
               <Key className="h-6 w-6" />Authorization Codes
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Generate and manage one-time registration codes
+              Generate and manage reusable registration codes
             </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -166,7 +165,7 @@ export default function AuthCodesPage() {
               <DialogHeader>
                 <DialogTitle>Generate Authorization Code</DialogTitle>
                 <DialogDescription>
-                  Create a new 6-digit code. Codes expire after 7 days.
+                  Create a new 6-digit code. One code can register any number of users for its role and stays valid for 7 days unless you delete it.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -199,10 +198,9 @@ export default function AuthCodesPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {[
             { label: "Active Codes", value: statusCounts.active, color: "text-green-600", bg: "bg-green-50", icon: CheckCircle2 },
-            { label: "Used Codes", value: statusCounts.used, color: "text-slate-600", bg: "bg-slate-50", icon: XCircle },
             { label: "Expired Codes", value: statusCounts.expired, color: "text-amber-600", bg: "bg-amber-50", icon: Clock },
           ].map((s) => (
             <Card key={s.label}>
@@ -241,7 +239,6 @@ export default function AuthCodesPage() {
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="used">Used</SelectItem>
                     <SelectItem value="expired">Expired</SelectItem>
                   </SelectContent>
                 </Select>
@@ -273,7 +270,7 @@ export default function AuthCodesPage() {
                       <TableHead>Status</TableHead>
                       <TableHead>Expires</TableHead>
                       <TableHead>Created</TableHead>
-                      <TableHead>Used By</TableHead>
+                      <TableHead>Registrations</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -287,10 +284,12 @@ export default function AuthCodesPage() {
                         <TableCell>{statusBadge(code)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{formatDate(code.expiresAt, "PP")}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{formatDate(code.createdAt, "PP")}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{code.usedBy || "—"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{code.useCount > 0
+                            ? `${code.useCount} user${code.useCount !== 1 ? "s" : ""}${code.lastUsedAt ? ` · last ${formatDate(code.lastUsedAt, "PP")}` : ""}`
+                            : "—"}</TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(code.code)} disabled={code.isUsed} title="Copy code">
+                            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(code.code)} disabled={getCodeStatus(code) === "expired"} title="Copy code">
                               <Copy className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => { setDeleteCode(code); setDeleteDialogOpen(true); }} title="Delete code">

@@ -54,7 +54,7 @@ export default function AdminDashboard() {
         const teachers    = users.filter((u: any) => u.role === "teacher").length;
         const parents     = users.filter((u: any) => u.role === "parent").length;
         const published   = results.filter((r: any) => r.published).length;
-        const unusedCodes = (codes as any[]).filter(c => !c.isUsed && new Date(c.expiresAt) > new Date()).length;
+        const unusedCodes = (codes as any[]).filter(c => new Date(c.expiresAt) > new Date()).length;
 
         setStats({ teachers, parents, students: students.length, results: results.length, classes: classes.length, published, drafts: results.length - published, authCodes: (codes as any[]).length, unusedCodes });
         if (session) setActiveSession(session.year);
@@ -157,7 +157,7 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="text-3xl font-bold">{stats.authCodes}</div>
               <p className="text-xs text-muted-foreground mt-2">
-                <span className="text-emerald-600 font-medium">{stats.unusedCodes}</span> unused &amp; valid
+                <span className="text-emerald-600 font-medium">{stats.unusedCodes}</span> active &amp; valid
               </p>
             </CardContent>
           </Card>

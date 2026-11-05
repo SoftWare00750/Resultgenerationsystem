@@ -150,13 +150,14 @@ export const authService = {
 
   async getAuthCodes(): Promise<unknown[]> {
     const rows = await api.get<unknown[]>('/auth-codes');
-    // Normalise to the shape the UI expects ($id, isUsed, expiresAt, createdAt)
+    // Normalise to the shape the UI expects ($id, useCount, expiresAt, createdAt)
     return (rows as any[]).map((c) => ({
       $id: c.id,
       code: c.code,
       role: c.role,
-      isUsed: c.is_used,
+      useCount: c.use_count ?? 0,
       usedBy: c.used_by,
+      lastUsedAt: c.last_used_at,
       expiresAt: c.expires_at,
       createdAt: c.created_at,
       createdBy: c.created_by,

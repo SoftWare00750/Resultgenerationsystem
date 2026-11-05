@@ -149,8 +149,9 @@ export interface AuthCode {
   $id: string;
   code: string;
   role: UserRole;
-  isUsed: boolean;
+  useCount: number;
   usedBy?: string;
+  lastUsedAt?: string;
   expiresAt: string;
   createdBy: string;
   createdAt: string;
