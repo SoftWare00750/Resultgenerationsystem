@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,27 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Close the drawer whenever the route changes
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  // While the mobile drawer is open: lock page scroll behind it and
+  // allow Escape to close it
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [sidebarOpen]);
 
   const handleLogout = async () => {
     try {
@@ -94,11 +115,11 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
 
   const sidebar = (
     <aside className={cn(
-      "fixed left-0 top-0 z-40 h-screen h-[100dvh] w-64 border-r bg-background flex flex-col transition-transform duration-300",
-      sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      "fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] md:w-64 border-r bg-background flex flex-col transition-transform duration-300 ease-in-out",
+      sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
     )}>
       {/* Logo */}
-      <div className={cn("flex h-16 items-center border-b px-5 bg-gradient-to-r", roleColors[role])}>
+      <div className={cn("flex h-16 shrink-0 items-center border-b px-5 bg-gradient-to-r", roleColors[role])}>
         <div className="flex items-center gap-3 w-full">
           <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20 overflow-hidden">
             <Image
@@ -111,14 +132,14 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             <p className="text-sm font-semibold text-white truncate">Result System</p>
             <p className="text-xs text-white/60">{ROLE_LABELS[role] || role} Portal</p>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-white/70 hover:text-white">
+          <button type="button" aria-label="Close menu" onClick={() => setSidebarOpen(false)} className="md:hidden p-2 -mr-2 text-white/70 hover:text-white">
             <X className="h-5 w-5" />
           </button>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
+      <nav className="flex-1 min-h-0 space-y-1 p-3 overflow-y-auto overscroll-contain">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
@@ -143,7 +164,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
       </nav>
 
       {/* User */}
-      <div className="border-t p-3 space-y-2">
+      <div className="shrink-0 border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
         <div className="rounded-lg bg-muted/50 px-3 py-2.5">
           <p className="text-sm font-semibold truncate">{user?.name}</p>
           <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
@@ -163,7 +184,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
 
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Main */}
@@ -171,7 +192,9 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
         {/* Top bar */}
         <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur px-4 md:px-6">
           <button
-            className="md:hidden -ml-1 p-1.5 rounded-md hover:bg-muted"
+            type="button"
+            aria-label="Open menu"
+            className="md:hidden -ml-1 p-2 rounded-md hover:bg-muted touch-manipulation"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-5 w-5" />
