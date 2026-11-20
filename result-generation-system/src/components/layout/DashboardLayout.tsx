@@ -92,9 +92,9 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
     central_admin: 'from-purple-950 to-purple-900',
   };
 
-  const Sidebar = () => (
+  const sidebar = (
     <aside className={cn(
-      "fixed left-0 top-0 z-40 h-screen w-64 border-r bg-background flex flex-col transition-transform duration-300",
+      "fixed left-0 top-0 z-40 h-screen h-[100dvh] w-64 border-r bg-background flex flex-col transition-transform duration-300",
       sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
     )}>
       {/* Logo */}
@@ -123,17 +123,20 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
           const Icon = item.icon;
           const active = pathname === item.href;
           return (
-            <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}>
-              <div className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors touch-manipulation",
                 active
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}>
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="flex-1">{item.label}</span>
-                {active && <ChevronRight className="h-3 w-3 opacity-60" />}
-              </div>
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{item.label}</span>
+              {active && <ChevronRight className="h-3 w-3 opacity-60" />}
             </Link>
           );
         })}
@@ -156,7 +159,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <Sidebar />
+      {sidebar}
 
       {/* Mobile overlay */}
       {sidebarOpen && (

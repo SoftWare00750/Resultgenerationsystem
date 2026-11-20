@@ -70,10 +70,10 @@ export default function TeacherStudentsPage() {
 
       let allRemoteStudents: ExtendedStudent[] = [];
       try {
-        for (const c of classes) {
-          const s = await studentsService.getStudentsByClass(c.name);
-          allRemoteStudents.push(...s);
-        }
+        const perClass = await Promise.all(
+          classes.map((c) => studentsService.getStudentsByClass(c.name))
+        );
+        perClass.forEach((list) => allRemoteStudents.push(...(list as ExtendedStudent[])));
       } catch (e) {
         console.warn("Remote student service failed, fallback to local storage storage.");
       }
@@ -89,7 +89,7 @@ export default function TeacherStudentsPage() {
       // that looks normal but silently fails at result-save time.
       const savedLocalStudents = rawLocalStudents.filter(s => !s.$id.startsWith('local_'));
       if (savedLocalStudents.length !== rawLocalStudents.length) {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(savedLocalStudents));
+        saveLocalBackup(savedLocalStudents);
         toast.warning(
           'Removed one or more student records that were never actually saved to the database. Please re-add them.'
         );
@@ -117,24 +117,61 @@ export default function TeacherStudentsPage() {
     fetchData();
   }, [user]);
 
-  // Image to Base64 Processing with size limits
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Resize + compress the photo before storing it. Raw phone photos are
+  // 3-8MB; as base64 that is too big for proxies, localStorage and the
+  // Sheets fallback (50k chars/cell), which is what made photos vanish.
+  const compressImage = (file: File, maxSize = 320, quality = 0.8): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Could not read image"));
+      reader.onload = () => {
+        const img = new window.Image();
+        img.onerror = () => reject(new Error("Unsupported image format"));
+        img.onload = () => {
+          const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject(new Error("Canvas unavailable"));
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.src = reader.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 5MB Validation Limit
-    const MAX_FILE_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error("Image file size must not exceed 5MB");
-      e.target.value = ""; // Clear file input element target
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file size must not exceed 10MB");
+      e.target.value = "";
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setFormData((prev) => ({ ...prev, photo: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      const photo = await compressImage(file);
+      setFormData((prev) => ({ ...prev, photo }));
+    } catch (err: any) {
+      toast.error(err.message || "Could not process this image");
+      e.target.value = "";
+    }
+  };
+
+  // localStorage is only a backup copy and has a ~5MB quota: never put
+  // photos in it, and never let a quota error break saving a student.
+  const saveLocalBackup = (list: ExtendedStudent[]) => {
+    try {
+      const slim = list.map(({ photo, ...rest }) => rest);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(slim));
+    } catch {
+      /* ignore quota errors */
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,7 +198,7 @@ export default function TeacherStudentsPage() {
       // call fails, we report the real error instead of faking success.
       if (editingStudent) {
         const updated = await studentsService.updateStudent(editingStudent.$id, formData);
-        const updatedTarget: ExtendedStudent = { ...editingStudent, ...formData, ...updated };
+        const updatedTarget: ExtendedStudent = { ...editingStudent, ...formData, ...updated, photo: (updated as ExtendedStudent).photo || formData.photo || editingStudent.photo };
 
         updatedStudentsList = updatedStudentsList.map(s => s.$id === editingStudent.$id ? updatedTarget : s);
         toast.success('Student updated successfully');
@@ -176,11 +213,12 @@ export default function TeacherStudentsPage() {
         const newStudentItem: ExtendedStudent = {
           ...formData,
           ...saved, // real $id, createdAt, and any other server-assigned fields win
+          photo: (saved as ExtendedStudent).photo || formData.photo || undefined,
         };
         updatedStudentsList.push(newStudentItem);
       }
 
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedStudentsList));
+      saveLocalBackup(updatedStudentsList);
       setStudents(updatedStudentsList);
       notifyStorageUpdate();
 
@@ -201,7 +239,7 @@ export default function TeacherStudentsPage() {
       await studentsService.deleteStudent(selectedStudent.$id);
 
       const updatedList = students.filter(s => s.$id !== selectedStudent.$id);
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedList));
+      saveLocalBackup(updatedList);
       setStudents(updatedList);
       notifyStorageUpdate();
 
@@ -258,9 +296,9 @@ export default function TeacherStudentsPage() {
   return (
     <DashboardLayout role="teacher">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">My Students</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">My Students</h1>
             <p className="text-muted-foreground">Manage Students in your assigned classes</p>
           </div>
           <div className="flex gap-2">
@@ -274,7 +312,7 @@ export default function TeacherStudentsPage() {
                   Add Student
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingStudent ? 'Edit Student' : 'Add New Student'}</DialogTitle>
                   <DialogDescription>
@@ -305,7 +343,7 @@ export default function TeacherStudentsPage() {
                           onChange={handlePhotoChange}
                           className="max-w-xs h-9 text-xs file:text-xs"
                         />
-                        <p className="text-[10px] text-muted-foreground">Max upload dimension parameters: 5MB</p>
+                        <p className="text-[10px] text-muted-foreground">Photo is automatically resized</p>
                       </div>
                     </div>
 

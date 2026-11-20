@@ -22,6 +22,7 @@ export interface Student {
   guardianName?: string;
   guardianPhone?: string;
   address?: string;
+  photo?: string;
   createdAt: string;
   // Set by the backend when the record was written to the Google Sheets
   // overflow store (i.e. Postgres was out of storage at the time). Absent
